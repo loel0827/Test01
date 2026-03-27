@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { defaultCategories } from "../data/categories";
+import { initialCategories, createInitialCategories } from "../data/initialData.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { guestStorageKeys, userStorageKeys } from "../utils/storageKeys.js";
 
@@ -26,7 +26,7 @@ function loadCategoriesRaw(keys) {
 
 function defaultDescriptionByToolId() {
   const map = new Map();
-  defaultCategories.forEach((c) =>
+  initialCategories.forEach((c) =>
     c.tools.forEach((t) => {
       if (t.description?.trim()) map.set(t.id, t.description.trim());
     })
@@ -46,7 +46,7 @@ function mergeDefaultDescriptions(saved) {
 }
 
 function mergeMissingCategories(saved) {
-  const defaults = JSON.parse(JSON.stringify(defaultCategories));
+  const defaults = createInitialCategories();
   const existing = new Set(saved.map((c) => c.id));
   const out = [...saved];
   defaults.forEach((c) => {
@@ -58,24 +58,60 @@ function mergeMissingCategories(saved) {
 function getInitialCategories(keys) {
   const saved = loadCategoriesRaw(keys);
   if (saved) return mergeDefaultDescriptions(mergeMissingCategories(saved));
-  return JSON.parse(JSON.stringify(defaultCategories));
+  return createInitialCategories();
+}
+
+function buildDefaultFavorites(categories) {
+  const s = new Set();
+  categories.forEach((c) =>
+    c.tools.forEach((t) => {
+      if (t.defaultFav) s.add(t.id);
+    })
+  );
+  return s;
 }
 
 function buildInitialFavorites(categories, keys) {
   try {
     const raw = localStorage.getItem(keys.favorites);
     if (!raw) {
-      const s = new Set();
-      categories.forEach((c) =>
-        c.tools.forEach((t) => {
-          if (t.defaultFav) s.add(t.id);
-        })
-      );
-      return s;
+      return buildDefaultFavorites(categories);
     }
-    return new Set(JSON.parse(raw));
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : buildDefaultFavorites(categories);
   } catch {
-    return new Set();
+    return buildDefaultFavorites(categories);
+  }
+}
+
+function ensureSeededStorage(keys) {
+  const seededCategories = getInitialCategories(keys);
+  const needSeedCategories = !loadCategoriesRaw(keys);
+  if (needSeedCategories) {
+    try {
+      localStorage.setItem(keys.categories, JSON.stringify(seededCategories));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const hasFavorites = localStorage.getItem(keys.favorites);
+  if (!hasFavorites) {
+    try {
+      localStorage.setItem(keys.favorites, JSON.stringify([...buildDefaultFavorites(seededCategories)]));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const hasActive = localStorage.getItem(keys.active);
+  if (!hasActive) {
+    const firstToolId = seededCategories.flatMap((c) => c.tools)[0]?.id || "chatgpt";
+    try {
+      localStorage.setItem(keys.active, firstToolId);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -99,6 +135,7 @@ export function useAiToolsState() {
   const keys = useMemo(() => keysForUser(user), [user?.id]);
 
   const k0 = keysForUser(user);
+  ensureSeededStorage(k0);
   const [categories, setCategories] = useState(() => getInitialCategories(k0));
   const [favorites, setFavorites] = useState(() => {
     const loaded = getInitialCategories(k0);
@@ -118,6 +155,7 @@ export function useAiToolsState() {
     if (prevUserId.current === cur) return;
     prevUserId.current = cur;
     const k = keysForUser(user);
+    ensureSeededStorage(k);
     const loaded = getInitialCategories(k);
     setCategories(loaded);
     setFavorites(buildInitialFavorites(loaded, k));
