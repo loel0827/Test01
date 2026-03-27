@@ -1,0 +1,8 @@
+# Caddy — 실제 웹 서버 (정적 파일 + gzip)
+# 문서: https://caddyserver.com/docs/caddyfile
+
+:8080 {
+	root * .
+	encode gzip
+	file_server
+}

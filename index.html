@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Tools Directory — 생성형 AI 도구 모음</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header__brand">
+      <span class="site-header__logo" aria-hidden="true">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGrad" x1="6" y1="4" x2="30" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#a855f7" />
+              <stop offset="1" stop-color="#ec4899" />
+            </linearGradient>
+          </defs>
+          <path d="M18 4l2.2 6.8h7.1l-5.7 4.1 2.2 6.8L18 17.6l-5.8 4.1 2.2-6.8-5.7-4.1h7.1L18 4z" fill="url(#logoGrad)" />
+          <path d="M10 22l1.5 4.5h4.7l-3.8 2.7 1.5 4.5-3.9-2.8-3.9 2.8 1.5-4.5-3.8-2.7h4.7L10 22z" fill="url(#logoGrad)" opacity=".85" />
+        </svg>
+      </span>
+      <div>
+        <h1 class="site-header__title">AI Tools Directory</h1>
+        <p class="site-header__subtitle">생성형 AI 도구 모음</p>
+      </div>
+    </div>
+    <div class="site-header__actions">
+      <button type="button" class="link-btn" id="btnFavorites" aria-pressed="false">
+        <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        즐겨찾기 보기
+      </button>
+      <button type="button" class="icon-btn" title="프로필" aria-label="프로필">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+      </button>
+      <button type="button" class="btn" id="btnAddCategory">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><path d="M12 11v6M9 14h6"/></svg>
+        카테고리 추가
+      </button>
+      <label class="search-wrap">
+        <svg class="search-wrap__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="search" id="searchInput" class="search-input" placeholder="검색..." autocomplete="off" />
+      </label>
+    </div>
+  </header>
+
+  <main class="main" id="main"></main>
+
+  <template id="tpl-category">
+    <section class="category" data-category-id="">
+      <div class="category__head" draggable="true" data-category-head>
+        <button type="button" class="category__drag" draggable="true" data-drag-handle aria-label="카테고리 순서 변경">⋮⋮</button>
+        <h2 class="category__title">
+          <span class="category__icon" data-category-icon></span>
+          <span class="category__hash">#</span>
+          <span class="category__name-pill"><span data-category-name></span></span>
+          <button type="button" class="icon-btn icon-btn--ghost category__edit-cat" draggable="false" data-edit-category title="카테고리 이름 편집" aria-label="카테고리 편집">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </h2>
+      </div>
+      <div class="category__grid" data-tools></div>
+    </section>
+  </template>
+
+  <template id="tpl-card">
+    <article class="tool-card" data-tool-id="">
+      <div class="tool-card__row">
+        <button type="button" class="tool-card__drag" draggable="true" data-tool-drag aria-label="순서 변경" title="드래그하여 순서 변경">⋮⋮</button>
+        <div class="tool-card__name-wrap">
+          <span class="tool-card__name" data-name></span>
+          <span class="tooltip" data-description-wrap hidden>
+            <button type="button" class="tooltip__trigger" aria-label="서비스 설명">i</button>
+            <span class="tooltip__content" data-description></span>
+          </span>
+        </div>
+        <div class="tool-card__actions">
+          <button type="button" class="icon-btn icon-btn--ghost tool-card__fav" title="즐겨찾기" aria-label="즐겨찾기">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--ghost" data-edit title="편집" aria-label="편집">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button type="button" class="icon-btn icon-btn--ghost" data-delete title="삭제" aria-label="삭제">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>
+          </button>
+        </div>
+      </div>
+      <a class="tool-card__body" href="#" target="_blank" rel="noopener noreferrer" data-link>
+        <div class="tool-card__circle">
+          <img src="" alt="" class="tool-card__logo" data-logo loading="lazy" />
+        </div>
+      </a>
+    </article>
+  </template>
+
+  <div class="modal-backdrop" id="addToolModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-label="AI 도구 추가">
+      <header class="modal__header">
+        <div>
+          <h3 class="modal__title">AI 도구 추가</h3>
+          <p class="modal__subtitle"><span id="modalCategoryName">AI Agent</span> 카테고리에 새로운 AI 도구를 추가합니다.</p>
+        </div>
+        <button type="button" class="icon-btn icon-btn--ghost" id="modalCloseBtn" aria-label="닫기">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+      <form class="modal__form" id="addToolForm">
+        <label class="modal__field">
+          <span>서비스 이름</span>
+          <input name="name" placeholder="예: ChatGPT" required />
+        </label>
+        <label class="modal__field">
+          <span>서비스 URL</span>
+          <input name="url" placeholder="https://example.com" required />
+        </label>
+        <label class="modal__field">
+          <span>서비스 설명</span>
+          <textarea name="description" rows="4" placeholder="서비스에 대한 간단한 설명을 입력하세요."></textarea>
+        </label>
+        <div class="modal__actions">
+          <button type="button" class="btn btn--ghost" id="modalCancelBtn">취소</button>
+          <button type="submit" class="btn btn--primary">추가</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop modal-backdrop--light" id="editToolModal" hidden>
+    <section class="modal modal--edit" role="dialog" aria-modal="true" aria-label="도구 편집">
+      <header class="modal__header modal__header--edit">
+        <div>
+          <h3 class="modal__title modal__title--edit">도구 편집</h3>
+          <p class="modal__subtitle modal__subtitle--edit">도구의 이름, URL, 설명을 변경할 수 있습니다.</p>
+        </div>
+        <button type="button" class="icon-btn icon-btn--ghost modal__close--light" id="editModalCloseBtn" aria-label="닫기">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+      <form class="modal__form modal__form--edit" id="editToolForm">
+        <div class="modal__row">
+          <label class="modal__row-label" for="editToolName">이름</label>
+          <input class="modal__input--edit" id="editToolName" name="name" required />
+        </div>
+        <div class="modal__row">
+          <label class="modal__row-label" for="editToolUrl">URL</label>
+          <input class="modal__input--edit" id="editToolUrl" name="url" required />
+        </div>
+        <div class="modal__row">
+          <label class="modal__row-label" for="editToolDesc">설명</label>
+          <input class="modal__input--edit" id="editToolDesc" name="description" placeholder="OpenAI의 대화형 AI" />
+        </div>
+        <div class="modal__row modal__row--fav">
+          <span class="modal__row-label">즐겨찾기</span>
+          <button type="button" class="edit-fav-btn" id="editFavoriteBtn" aria-pressed="false" aria-label="즐겨찾기">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal__actions modal__actions--edit">
+          <button type="submit" class="btn btn--save">저장</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <template id="tpl-add-card">
+    <button type="button" class="tool-card tool-card--add" data-add-tool>
+      <span class="tool-card--add__plus">+</span>
+      <span class="tool-card--add__label">새 도구 추가</span>
+    </button>
+  </template>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

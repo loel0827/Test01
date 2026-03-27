@@ -1,0 +1,19 @@
+# Node / Vite (React 앱)
+react-ai-tools/node_modules/
+react-ai-tools/dist/
+react-ai-tools/.vite/
+
+# 로그
+*.log
+npm-debug.log*
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/*
+!.vscode/extensions.json
+
+# 로컬 전용 (필요 시)
+# .env
+# .env.local

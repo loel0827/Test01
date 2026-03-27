@@ -1,0 +1,328 @@
+/** @typedef {{ id: string; name: string; url: string; domain: string; description?: string; defaultFav?: boolean }} Tool */
+/** @typedef {{ id: string; name: string; icon: 'agent'|'image'|'video'|'voice'|'music'|'edit'|'business'; tools: Tool[] }} Category */
+
+/** @type {Category[]} */
+const categories = [
+  {
+    id: "agent",
+    name: "AI Agent",
+    icon: "agent",
+    tools: [
+      {
+        id: "chatgpt",
+        name: "ChatGPT",
+        url: "https://chat.openai.com/",
+        domain: "openai.com",
+        description: "OpenAI의 대화형 AI로 글쓰기·코딩·요약 등 일반 질문과 업무 보조에 널리 쓰입니다.",
+        defaultFav: true,
+      },
+      {
+        id: "claude",
+        name: "Claude",
+        url: "https://claude.ai/",
+        domain: "claude.ai",
+        description: "Anthropic의 AI 어시스턴트로 긴 문서 읽기·분석과 신중한 답변에 강점이 있습니다.",
+      },
+      {
+        id: "gemini",
+        name: "Gemini",
+        url: "https://gemini.google.com/",
+        domain: "google.com",
+        description: "Google의 멀티모달 AI로 검색·이미지 등 구글 생태계와 함께 쓰기 좋습니다.",
+      },
+      {
+        id: "perplexity",
+        name: "Perplexity",
+        url: "https://www.perplexity.ai/",
+        domain: "perplexity.ai",
+        description: "출처 링크를 곁들여 답하는 AI 검색·리서치 도구입니다.",
+      },
+      {
+        id: "grok",
+        name: "Grok",
+        url: "https://grok.x.ai/",
+        domain: "x.ai",
+        description: "X(트위터) 실시간 정보를 활용하는 대화형 AI입니다.",
+      },
+      {
+        id: "copilot",
+        name: "Copilot",
+        url: "https://copilot.microsoft.com/",
+        domain: "microsoft.com",
+        description: "Microsoft 365·Windows·코딩을 돕는 AI 비서입니다.",
+      },
+      {
+        id: "deepseek",
+        name: "DeepSeek",
+        url: "https://chat.deepseek.com/",
+        domain: "deepseek.com",
+        description: "추론·수학·코딩에 강한 오픈 웨이트 계열 채팅 서비스입니다.",
+      },
+    ],
+  },
+  {
+    id: "image",
+    name: "Image",
+    icon: "image",
+    tools: [
+      {
+        id: "midjourney",
+        name: "Midjourney",
+        url: "https://www.midjourney.com/",
+        domain: "midjourney.com",
+        description: "디스코드 기반으로 유명한 고품질 AI 이미지·아트 생성기입니다.",
+      },
+      {
+        id: "dalle",
+        name: "DALL-E",
+        url: "https://openai.com/dall-e-3",
+        domain: "openai.com",
+        description: "OpenAI의 텍스트-이미지 생성(DALL·E) 공식 소개 페이지입니다.",
+      },
+      {
+        id: "ideogram",
+        name: "Ideogram",
+        url: "https://ideogram.ai/",
+        domain: "ideogram.ai",
+        description: "포스터·로고처럼 글자가 들어간 이미지 생성에 강합니다.",
+      },
+      {
+        id: "sd",
+        name: "Stable Diffusion",
+        url: "https://stability.ai/",
+        domain: "stability.ai",
+        description: "스테이블 디퓨전 계열 모델과 이미지 AI 생태계의 허브입니다.",
+      },
+      {
+        id: "flux",
+        name: "Flux",
+        url: "https://flux.ai/",
+        domain: "flux.ai",
+        description: "디자인·프로토타입·협업을 위한 AI 중심 툴(Flux)입니다.",
+      },
+      {
+        id: "recraft",
+        name: "Recraft",
+        url: "https://recraft.ai/",
+        domain: "recraft.ai",
+        description: "브랜드 톤을 맞춘 벡터·그래픽 디자인용 생성 AI입니다.",
+      },
+      {
+        id: "leonardo",
+        name: "Leonardo",
+        url: "https://leonardo.ai/",
+        domain: "leonardo.ai",
+        description: "게임·캐릭터·컨셉 아트 제작에 자주 쓰이는 이미지 생성 플랫폼입니다.",
+      },
+      {
+        id: "freepik",
+        name: "Freepik",
+        url: "https://www.freepik.com/",
+        domain: "freepik.com",
+        description: "스톡 이미지와 AI 생성 기능을 함께 제공하는 크리에이티브 리소스 사이트입니다.",
+      },
+    ],
+  },
+  {
+    id: "video",
+    name: "Video",
+    icon: "video",
+    tools: [
+      {
+        id: "runway",
+        name: "Runway",
+        url: "https://runwayml.com/",
+        domain: "runwayml.com",
+        description: "Gen 시리즈 등으로 짧은 영상·효과 생성에 널리 쓰이는 도구입니다.",
+      },
+      {
+        id: "pika",
+        name: "Pika",
+        url: "https://pika.art/",
+        domain: "pika.art",
+        description: "텍스트·이미지에서 클립 형태의 영상을 만드는 생성형 비디오입니다.",
+      },
+      {
+        id: "luma",
+        name: "Luma",
+        url: "https://lumalabs.ai/",
+        domain: "lumalabs.ai",
+        description: "Dream Machine 등 AI 영상·3D 관련 제품을 제공합니다.",
+      },
+      {
+        id: "heygen",
+        name: "HeyGen",
+        url: "https://www.heygen.com/",
+        domain: "heygen.com",
+        description: "AI 아바타로 다국어 소개·마케팅 영상을 빠르게 만듭니다.",
+      },
+      {
+        id: "synthesia",
+        name: "Synthesia",
+        url: "https://www.synthesia.io/",
+        domain: "synthesia.io",
+        description: "기업 교육·내부 커뮤니케이션용 AI 아바타 영상 플랫폼입니다.",
+      },
+      {
+        id: "sora",
+        name: "Sora",
+        url: "https://openai.com/sora",
+        domain: "openai.com",
+        description: "OpenAI의 텍스트-비디오 생성 모델 Sora 소개 페이지입니다.",
+      },
+      {
+        id: "haiper",
+        name: "Haiper",
+        url: "https://haiper.ai/",
+        domain: "haiper.ai",
+        description: "짧은 영상 생성·스타일 변환에 초점을 둔 경량 비디오 AI입니다.",
+      },
+      {
+        id: "kling",
+        name: "Kling",
+        url: "https://kling.ai/",
+        domain: "kling.ai",
+        description: "텍스트 프롬프트로 영상을 생성하는 AI 비디오 서비스입니다.",
+      },
+    ],
+  },
+  {
+    id: "voice",
+    name: "Voice/Lip-Sync",
+    icon: "voice",
+    tools: [
+      {
+        id: "eleven",
+        name: "ElevenLabs",
+        url: "https://elevenlabs.io/",
+        domain: "elevenlabs.io",
+        description: "자연스러운 TTS·음성 복제로 오디오북·더빙에 많이 쓰입니다.",
+      },
+      {
+        id: "typecast",
+        name: "Typecast",
+        url: "https://typecast.ai/",
+        domain: "typecast.ai",
+        description: "한국어 포함 다양한 성우 톤으로 내레이션·캐릭터 음성을 만듭니다.",
+      },
+      {
+        id: "murf",
+        name: "Murf",
+        url: "https://murf.ai/",
+        domain: "murf.ai",
+        description: "프레젠테이션·교육 콘텐츠용 음성 나레이션 생성 도구입니다.",
+      },
+      {
+        id: "resemble",
+        name: "Resemble",
+        url: "https://www.resemble.ai/",
+        domain: "resemble.ai",
+        description: "실시간·API 중심의 음성 합성·복제 플랫폼입니다.",
+      },
+      {
+        id: "playht",
+        name: "PlayHT",
+        url: "https://play.ht/",
+        domain: "play.ht",
+        description: "블로그·기사를 음성으로 바꾸는 TTS 서비스입니다.",
+      },
+      {
+        id: "supertone",
+        name: "Supertone",
+        url: "https://supertone.ai/",
+        domain: "supertone.ai",
+        description: "한국 스타트업의 보이스·노래 합성 AI입니다.",
+      },
+    ],
+  },
+  {
+    id: "music",
+    name: "Music",
+    icon: "music",
+    tools: [
+      {
+        id: "suno",
+        name: "Suno",
+        url: "https://suno.ai/",
+        domain: "suno.ai",
+        description: "AI로 노래·보컬·악기 스타일을 만들어 주는 음악 생성 서비스입니다.",
+      },
+      {
+        id: "udio",
+        name: "Udio",
+        url: "https://udio.com/",
+        domain: "udio.com",
+        description: "텍스트 프롬프트로 트랙을 생성하는 AI 음악 도구입니다.",
+      },
+      {
+        id: "aiva",
+        name: "AIVA",
+        url: "https://www.aiva.ai/",
+        domain: "aiva.ai",
+        description: "클래식·영화 스코어풍 작곡을 지원하는 AI 작곡 플랫폼입니다.",
+      },
+    ],
+  },
+  {
+    id: "edit",
+    name: "Edit",
+    icon: "edit",
+    tools: [
+      {
+        id: "descript",
+        name: "Descript",
+        url: "https://www.descript.com/",
+        domain: "descript.com",
+        description: "영상·팟캐스트 편집을 텍스트처럼 다루는 타임라인 AI 편집기입니다.",
+      },
+      {
+        id: "cutout",
+        name: "Cutout",
+        url: "https://www.cutout.pro/",
+        domain: "cutout.pro",
+        description: "배경 제거·이미지 보정 등 편집 자동화에 특화된 도구입니다.",
+      },
+      {
+        id: "opusclip",
+        name: "OpusClip",
+        url: "https://www.opus.pro/",
+        domain: "opus.pro",
+        description: "긴 영상을 숏폼 클립으로 자동 재구성하는 AI입니다.",
+      },
+    ],
+  },
+  {
+    id: "business",
+    name: "Business",
+    icon: "business",
+    tools: [
+      {
+        id: "notion",
+        name: "Notion",
+        url: "https://www.notion.so/product/ai",
+        domain: "notion.so",
+        description: "문서·위키·프로젝트 관리에 AI 요약·초안을 더한 올인원 워크스페이스입니다.",
+      },
+      {
+        id: "gamma",
+        name: "Gamma",
+        url: "https://gamma.app/",
+        domain: "gamma.app",
+        description: "AI로 슬라이드·문서 레이아웃을 빠르게 만드는 프레젠테이션 도구입니다.",
+      },
+      {
+        id: "notebooklm",
+        name: "NotebookLM",
+        url: "https://notebooklm.google/",
+        domain: "google.com",
+        description: "Google의 문서 기반 연구 노트·질의응답 서비스입니다.",
+      },
+    ],
+  },
+];
+
+function faviconUrl(domain) {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+}
+
+window.AI_TOOLS_DATA = { categories, faviconUrl };

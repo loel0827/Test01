@@ -1,0 +1,415 @@
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { defaultCategories } from "../data/categories";
+import { useAuth } from "../context/AuthContext.jsx";
+import { guestStorageKeys, userStorageKeys } from "../utils/storageKeys.js";
+
+/** 게스트 키 (다른 모듈·문서 호환용) */
+export const STORAGE_CATEGORIES = "ai-tools-categories";
+export const STORAGE_FAVS = "ai-tools-favorites";
+export const STORAGE_ACTIVE = "ai-tools-active-tool";
+
+function keysForUser(user) {
+  return user ? userStorageKeys(user.id) : guestStorageKeys();
+}
+
+function loadCategoriesRaw(keys) {
+  try {
+    const raw = localStorage.getItem(keys.categories);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function defaultDescriptionByToolId() {
+  const map = new Map();
+  defaultCategories.forEach((c) =>
+    c.tools.forEach((t) => {
+      if (t.description?.trim()) map.set(t.id, t.description.trim());
+    })
+  );
+  return map;
+}
+
+function mergeDefaultDescriptions(saved) {
+  const map = defaultDescriptionByToolId();
+  return saved.map((c) => ({
+    ...c,
+    tools: c.tools.map((t) => ({
+      ...t,
+      description: t.description?.trim() ? t.description.trim() : (map.get(t.id) ?? ""),
+    })),
+  }));
+}
+
+function mergeMissingCategories(saved) {
+  const defaults = JSON.parse(JSON.stringify(defaultCategories));
+  const existing = new Set(saved.map((c) => c.id));
+  const out = [...saved];
+  defaults.forEach((c) => {
+    if (!existing.has(c.id)) out.push(c);
+  });
+  return out;
+}
+
+function getInitialCategories(keys) {
+  const saved = loadCategoriesRaw(keys);
+  if (saved) return mergeDefaultDescriptions(mergeMissingCategories(saved));
+  return JSON.parse(JSON.stringify(defaultCategories));
+}
+
+function buildInitialFavorites(categories, keys) {
+  try {
+    const raw = localStorage.getItem(keys.favorites);
+    if (!raw) {
+      const s = new Set();
+      categories.forEach((c) =>
+        c.tools.forEach((t) => {
+          if (t.defaultFav) s.add(t.id);
+        })
+      );
+      return s;
+    }
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+function normalize(s) {
+  return s.toLowerCase().trim();
+}
+
+function matchesSearch(tool, catName, q) {
+  if (!q) return true;
+  const n = normalize(q);
+  return (
+    normalize(tool.name).includes(n) ||
+    normalize(catName).includes(n) ||
+    normalize(tool.url).includes(n) ||
+    normalize(tool.description || "").includes(n)
+  );
+}
+
+export function useAiToolsState() {
+  const { user } = useAuth();
+  const keys = useMemo(() => keysForUser(user), [user?.id]);
+
+  const k0 = keysForUser(user);
+  const [categories, setCategories] = useState(() => getInitialCategories(k0));
+  const [favorites, setFavorites] = useState(() => {
+    const loaded = getInitialCategories(k0);
+    return buildInitialFavorites(loaded, k0);
+  });
+  const [activeToolId, setActiveToolId] = useState(() => localStorage.getItem(k0.active) || "chatgpt");
+  const activeToolIdRef = useRef(activeToolId);
+  useEffect(() => {
+    activeToolIdRef.current = activeToolId;
+  }, [activeToolId]);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const prevUserId = useRef(user?.id ?? null);
+  useEffect(() => {
+    const cur = user?.id ?? null;
+    if (prevUserId.current === cur) return;
+    prevUserId.current = cur;
+    const k = keysForUser(user);
+    const loaded = getInitialCategories(k);
+    setCategories(loaded);
+    setFavorites(buildInitialFavorites(loaded, k));
+    const aid = localStorage.getItem(k.active) || "chatgpt";
+    activeToolIdRef.current = aid;
+    setActiveToolId(aid);
+    setSearchQuery("");
+    setFavoritesOnly(false);
+  }, [user?.id, user]);
+
+  const persistCategories = useCallback(
+    (next) => {
+      try {
+        localStorage.setItem(keys.categories, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+    },
+    [keys.categories]
+  );
+
+  const persistFavorites = useCallback(
+    (set) => {
+      try {
+        localStorage.setItem(keys.favorites, JSON.stringify([...set]));
+      } catch {
+        /* ignore */
+      }
+    },
+    [keys.favorites]
+  );
+
+  const persistActive = useCallback(
+    (id) => {
+      try {
+        localStorage.setItem(keys.active, id);
+      } catch {
+        /* ignore */
+      }
+    },
+    [keys.active]
+  );
+
+  const sections = useMemo(() => {
+    return categories
+      .map((cat) => ({
+        ...cat,
+        tools: cat.tools.filter((t) => {
+          if (!matchesSearch(t, cat.name, searchQuery)) return false;
+          if (favoritesOnly && !favorites.has(t.id)) return false;
+          return true;
+        }),
+      }))
+      .filter((cat) => !favoritesOnly || cat.tools.length > 0);
+  }, [categories, searchQuery, favoritesOnly, favorites]);
+
+  const toggleFavorite = useCallback(
+    (toolId) => {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (next.has(toolId)) next.delete(toolId);
+        else next.add(toolId);
+        persistFavorites(next);
+        return next;
+      });
+    },
+    [persistFavorites]
+  );
+
+  const setFavoriteState = useCallback(
+    (toolId, isFavorite) => {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (isFavorite) next.add(toolId);
+        else next.delete(toolId);
+        persistFavorites(next);
+        return next;
+      });
+    },
+    [persistFavorites]
+  );
+
+  const setActiveTool = useCallback(
+    (id) => {
+      activeToolIdRef.current = id;
+      setActiveToolId(id);
+      persistActive(id);
+    },
+    [persistActive]
+  );
+
+  const editTool = useCallback(
+    (categoryId, toolId, name, url, description = "") => {
+      setCategories((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== categoryId) return c;
+          return {
+            ...c,
+            tools: c.tools.map((t) => {
+              if (t.id !== toolId) return t;
+              let finalUrl = url.trim() || t.url;
+              const withProto = finalUrl.startsWith("http") ? finalUrl : `https://${finalUrl}`;
+              let domain = t.domain;
+              try {
+                domain = new URL(withProto).hostname.replace(/^www\./, "");
+                finalUrl = withProto;
+              } catch {
+                /* keep */
+              }
+              return {
+                ...t,
+                name: name.trim() || t.name,
+                url: finalUrl,
+                domain,
+                description: description.trim(),
+              };
+            }),
+          };
+        });
+        persistCategories(next);
+        return next;
+      });
+    },
+    [persistCategories]
+  );
+
+  const deleteTool = useCallback(
+    (categoryId, toolId) => {
+      setCategories((prev) => {
+        const next = prev.map((c) =>
+          c.id === categoryId ? { ...c, tools: c.tools.filter((t) => t.id !== toolId) } : c
+        );
+        persistCategories(next);
+        if (activeToolIdRef.current === toolId) {
+          const nid = next.flatMap((c) => c.tools)[0]?.id || "";
+          activeToolIdRef.current = nid;
+          persistActive(nid);
+          queueMicrotask(() => setActiveToolId(nid));
+        }
+        return next;
+      });
+      setFavorites((prev) => {
+        if (!prev.has(toolId)) return prev;
+        const next = new Set(prev);
+        next.delete(toolId);
+        persistFavorites(next);
+        return next;
+      });
+    },
+    [persistCategories, persistFavorites, persistActive]
+  );
+
+  const addTool = useCallback(
+    (categoryId, name, url, description = "") => {
+      const raw = url.trim();
+      const withProto = raw.startsWith("http") ? raw : `https://${raw}`;
+      let domain = "example.com";
+      try {
+        domain = new URL(withProto).hostname.replace(/^www\./, "");
+      } catch {
+        return false;
+      }
+      const id = `custom-${Date.now()}`;
+      setCategories((prev) => {
+        const next = prev.map((c) =>
+          c.id === categoryId
+            ? {
+                ...c,
+                tools: [
+                  ...c.tools,
+                  { id, name: name.trim(), url: withProto, domain, description: description.trim() },
+                ],
+              }
+            : c
+        );
+        persistCategories(next);
+        return next;
+      });
+      return true;
+    },
+    [persistCategories]
+  );
+
+  const addCategory = useCallback(
+    (name) => {
+      const id = `cat-${Date.now()}`;
+      setCategories((prev) => {
+        const next = [...prev, { id, name: name.trim(), icon: "agent", tools: [] }];
+        persistCategories(next);
+        return next;
+      });
+    },
+    [persistCategories]
+  );
+
+  const editCategoryName = useCallback(
+    (categoryId, name) => {
+      setCategories((prev) => {
+        const next = prev.map((c) => (c.id === categoryId ? { ...c, name: name.trim() } : c));
+        persistCategories(next);
+        return next;
+      });
+    },
+    [persistCategories]
+  );
+
+  const reorderCategories = useCallback(
+    (sourceId, targetId) => {
+      if (sourceId === targetId) return;
+      setCategories((prev) => {
+        const si = prev.findIndex((c) => c.id === sourceId);
+        if (si < 0) return prev;
+        const removed = prev[si];
+        const next = prev.filter((c) => c.id !== sourceId);
+        const insertAt = next.findIndex((c) => c.id === targetId);
+        if (insertAt >= 0) next.splice(insertAt, 0, removed);
+        else next.push(removed);
+        persistCategories(next);
+        return next;
+      });
+    },
+    [persistCategories]
+  );
+
+  const reorderTools = useCallback(
+    (categoryId, sourceToolId, targetToolId) => {
+      if (sourceToolId === targetToolId) return;
+      setCategories((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== categoryId) return c;
+          const tools = [...c.tools];
+          const si = tools.findIndex((t) => t.id === sourceToolId);
+          const ti = tools.findIndex((t) => t.id === targetToolId);
+          if (si < 0 || ti < 0) return c;
+          const [removed] = tools.splice(si, 1);
+          tools.splice(ti, 0, removed);
+          return { ...c, tools };
+        });
+        persistCategories(next);
+        return next;
+      });
+    },
+    [persistCategories]
+  );
+
+  const moveToolToEnd = useCallback(
+    (categoryId, toolId) => {
+      setCategories((prev) => {
+        const next = prev.map((c) => {
+          if (c.id !== categoryId) return c;
+          const tools = [...c.tools];
+          const si = tools.findIndex((t) => t.id === toolId);
+          if (si < 0) return c;
+          const [removed] = tools.splice(si, 1);
+          tools.push(removed);
+          return { ...c, tools };
+        });
+        persistCategories(next);
+        return next;
+      });
+    },
+    [persistCategories]
+  );
+
+  const findToolWithCategory = useCallback((toolId) => {
+    for (const c of categories) {
+      const tool = c.tools.find((t) => t.id === toolId);
+      if (tool) return { tool, category: c };
+    }
+    return null;
+  }, [categories]);
+
+  return {
+    categories,
+    sections,
+    favorites,
+    activeToolId,
+    favoritesOnly,
+    setFavoritesOnly,
+    searchQuery,
+    setSearchQuery,
+    toggleFavorite,
+    setFavoriteState,
+    setActiveTool,
+    editTool,
+    deleteTool,
+    addTool,
+    addCategory,
+    editCategoryName,
+    reorderCategories,
+    reorderTools,
+    moveToolToEnd,
+    findToolWithCategory,
+  };
+}
