@@ -1,0 +1,6 @@
+{
+  "installCommand": "cd react-ai-tools && npm ci",
+  "buildCommand": "cd react-ai-tools && npm run build",
+  "outputDirectory": "react-ai-tools/dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

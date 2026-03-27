@@ -17,11 +17,33 @@ function loadCategoriesRaw(keys) {
     const raw = localStorage.getItem(keys.categories);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    if (isValidSavedCategories(parsed)) return parsed;
   } catch {
     /* ignore */
   }
   return null;
+}
+
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+function isValidSavedCategories(parsed) {
+  if (!Array.isArray(parsed) || parsed.length === 0) return false;
+  return parsed.every((cat) => {
+    if (!cat || typeof cat !== "object") return false;
+    if (!isNonEmptyString(cat.id) || !isNonEmptyString(cat.name)) return false;
+    if (!Array.isArray(cat.tools)) return false;
+    return cat.tools.every((tool) => {
+      if (!tool || typeof tool !== "object") return false;
+      return (
+        isNonEmptyString(tool.id) &&
+        isNonEmptyString(tool.name) &&
+        isNonEmptyString(tool.url) &&
+        isNonEmptyString(tool.domain)
+      );
+    });
+  });
 }
 
 function defaultDescriptionByToolId() {
