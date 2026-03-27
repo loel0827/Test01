@@ -6,6 +6,7 @@ export function WriteBoardPostModal({ isOpen, onClose, onSubmit, initialBoard = 
   const [board, setBoard] = useState(initialBoard);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -17,9 +18,11 @@ export function WriteBoardPostModal({ isOpen, onClose, onSubmit, initialBoard = 
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const ok = onSubmit(board, { title, body });
+    setSaving(true);
+    const ok = await onSubmit(board, { title, body });
+    setSaving(false);
     if (ok) {
       setTitle("");
       setBody("");
@@ -92,11 +95,11 @@ export function WriteBoardPostModal({ isOpen, onClose, onSubmit, initialBoard = 
             />
           </label>
           <div className="board-modal__actions">
-            <button type="button" className="board-modal__btn board-modal__btn--ghost" onClick={handleClose}>
+            <button type="button" className="board-modal__btn board-modal__btn--ghost" onClick={handleClose} disabled={saving}>
               취소
             </button>
-            <button type="submit" className="board-modal__btn board-modal__btn--primary">
-              등록
+            <button type="submit" className="board-modal__btn board-modal__btn--primary" disabled={saving}>
+              {saving ? "등록 중..." : "등록"}
             </button>
           </div>
         </form>

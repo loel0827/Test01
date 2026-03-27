@@ -78,8 +78,8 @@ export function ServiceBoardPage() {
     setActiveTool(tool.id);
   };
 
-  const handleSubmitPost = (board, payload) => {
-    const ok = addPost(board, payload);
+  const handleSubmitPost = async (board, payload) => {
+    const ok = await addPost(board, payload);
     if (!ok) window.alert("제목을 입력해 주세요.");
     return ok;
   };

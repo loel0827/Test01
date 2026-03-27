@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export const STORAGE_BOARD_POSTS = "ai-tools-board-posts";
@@ -70,6 +70,17 @@ function ensureBoardPostsMergedOnce() {
 
 let boardMergeChecked = false;
 
+async function fetchBoardsFromServer(toolId) {
+  const res = await fetch(`/api/board?toolId=${encodeURIComponent(toolId)}`);
+  if (!res.ok) throw new Error(`API_${res.status}`);
+  const data = await res.json();
+  if (!data?.ok) throw new Error(data?.error || "API_ERROR");
+  return {
+    service: Array.isArray(data?.boards?.service) ? data.boards.service : [],
+    tutorial: Array.isArray(data?.boards?.tutorial) ? data.boards.tutorial : [],
+  };
+}
+
 /**
  * @param {string} toolId
  */
@@ -81,10 +92,11 @@ export function useServiceBoardPosts(toolId) {
   }
 
   const [version, setVersion] = useState(0);
+  const [remoteEnabled, setRemoteEnabled] = useState(true);
+  const [remoteBoards, setRemoteBoards] = useState({ service: [], tutorial: [] });
 
   const data = useMemo(() => readAllRaw(STORAGE_BOARD_POSTS), [version]);
-
-  const boards = useMemo(() => {
+  const localBoards = useMemo(() => {
     const row = data[toolId];
     if (!row || typeof row !== "object") return { service: [], tutorial: [] };
     return {
@@ -93,13 +105,51 @@ export function useServiceBoardPosts(toolId) {
     };
   }, [data, toolId]);
 
+  const boards = remoteEnabled ? remoteBoards : localBoards;
+
   const bump = useCallback(() => setVersion((v) => v + 1), []);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!toolId) return;
+    if (!remoteEnabled) return;
+    fetchBoardsFromServer(toolId)
+      .then((next) => {
+        if (!cancelled) setRemoteBoards(next);
+      })
+      .catch(() => {
+        if (!cancelled) setRemoteEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [toolId, remoteEnabled, version]);
+
   const addPost = useCallback(
-    (board, { title, body }) => {
+    async (board, { title, body }) => {
       const t = title?.trim();
       const b = body?.trim();
       if (!t) return false;
+
+      if (remoteEnabled) {
+        const res = await fetch("/api/board", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            toolId,
+            board,
+            title: t,
+            body: b || "",
+            author: user?.id ?? null,
+          }),
+        });
+        if (res.ok) {
+          bump();
+          return true;
+        }
+        setRemoteEnabled(false);
+      }
+
       const all = readAllRaw(STORAGE_BOARD_POSTS);
       const cur = all[toolId] && typeof all[toolId] === "object" ? all[toolId] : {};
       const service = Array.isArray(cur.service) ? [...cur.service] : [];
@@ -118,11 +168,24 @@ export function useServiceBoardPosts(toolId) {
       bump();
       return true;
     },
-    [toolId, bump, user?.id]
+    [toolId, bump, user?.id, remoteEnabled]
   );
 
   const deletePost = useCallback(
-    (board, postId) => {
+    async (board, postId) => {
+      if (remoteEnabled) {
+        const res = await fetch("/api/board", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toolId, board, postId }),
+        });
+        if (res.ok) {
+          bump();
+          return;
+        }
+        setRemoteEnabled(false);
+      }
+
       const all = readAllRaw(STORAGE_BOARD_POSTS);
       const cur = all[toolId];
       if (!cur || typeof cur !== "object") return;
@@ -132,7 +195,7 @@ export function useServiceBoardPosts(toolId) {
       writeAllRaw(STORAGE_BOARD_POSTS, all);
       bump();
     },
-    [toolId, bump]
+    [toolId, bump, remoteEnabled]
   );
 
   return { servicePosts: boards.service, tutorialPosts: boards.tutorial, addPost, deletePost };
