@@ -21,17 +21,25 @@ export function WriteBoardPostModal({ isOpen, onClose, onSubmit, initialBoard = 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const ok = await onSubmit(board, { title, body });
-    setSaving(false);
-    if (ok) {
-      setTitle("");
-      setBody("");
-      setBoard(initialBoard);
-      onClose();
+    try {
+      const ok = await onSubmit(board, { title, body });
+      if (ok) {
+        setTitle("");
+        setBody("");
+        setBoard(initialBoard);
+        onClose();
+      } else {
+        window.alert("등록에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } catch {
+      window.alert("네트워크 오류로 등록하지 못했습니다.");
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleClose = () => {
+    setSaving(false);
     setTitle("");
     setBody("");
     onClose();

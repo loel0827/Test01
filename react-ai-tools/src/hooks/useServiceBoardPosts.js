@@ -70,8 +70,20 @@ function ensureBoardPostsMergedOnce() {
 
 let boardMergeChecked = false;
 
+const API_TIMEOUT_MS = 18_000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function fetchBoardsFromServer(toolId) {
-  const res = await fetch(`/api/board?toolId=${encodeURIComponent(toolId)}`);
+  const res = await fetchWithTimeout(`/api/board?toolId=${encodeURIComponent(toolId)}`);
   if (!res.ok) throw new Error(`API_${res.status}`);
   const data = await res.json();
   if (!data?.ok) throw new Error(data?.error || "API_ERROR");
@@ -132,20 +144,24 @@ export function useServiceBoardPosts(toolId) {
       if (!t) return false;
 
       if (remoteEnabled) {
-        const res = await fetch("/api/board", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            toolId,
-            board,
-            title: t,
-            body: b || "",
-            author: user?.id ?? null,
-          }),
-        });
-        if (res.ok) {
-          bump();
-          return true;
+        try {
+          const res = await fetchWithTimeout("/api/board", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toolId,
+              board,
+              title: t,
+              body: b || "",
+              author: user?.id ?? null,
+            }),
+          });
+          if (res.ok) {
+            bump();
+            return true;
+          }
+        } catch {
+          /* 네트워크/타임아웃 → 로컬 저장으로 폴백 */
         }
         setRemoteEnabled(false);
       }
@@ -174,14 +190,18 @@ export function useServiceBoardPosts(toolId) {
   const deletePost = useCallback(
     async (board, postId) => {
       if (remoteEnabled) {
-        const res = await fetch("/api/board", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ toolId, board, postId }),
-        });
-        if (res.ok) {
-          bump();
-          return;
+        try {
+          const res = await fetchWithTimeout("/api/board", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toolId, board, postId }),
+          });
+          if (res.ok) {
+            bump();
+            return;
+          }
+        } catch {
+          /* fall through */
         }
         setRemoteEnabled(false);
       }

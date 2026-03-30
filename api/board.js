@@ -1,4 +1,9 @@
+/** Web Request/Response API — Node 기본 런타임에서는 req.json()이 없어 멈출 수 있음 */
+export const config = { runtime: "edge" };
+
 const BOARD_KEY = "ai-tools-board-posts-shared-v2";
+
+const KV_FETCH_MS = 12_000;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -17,6 +22,7 @@ function getKvConfig() {
 async function kvCommand(command) {
   const cfg = getKvConfig();
   if (!cfg) throw new Error("KV_NOT_CONFIGURED");
+  const ac = typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(KV_FETCH_MS) : undefined;
   const res = await fetch(cfg.url, {
     method: "POST",
     headers: {
@@ -24,6 +30,7 @@ async function kvCommand(command) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(command),
+    signal: ac,
   });
   if (!res.ok) throw new Error(`KV_HTTP_${res.status}`);
   const payload = await res.json();
