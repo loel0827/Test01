@@ -1,5 +1,10 @@
 @echo off
 chcp 65001 >nul
+cd /d "%~dp0"
+where node >nul 2>&1
+if not errorlevel 1 (
+  node "%~dp0scripts\supabase-setup.mjs"
+)
 cd /d "%~dp0react-ai-tools"
 where npm >nul 2>&1
 if errorlevel 1 (

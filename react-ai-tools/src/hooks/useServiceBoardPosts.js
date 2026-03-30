@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
+import { getSupabase } from "../lib/supabaseClient.js";
 
 export const STORAGE_BOARD_POSTS = "ai-tools-board-posts";
 
@@ -51,7 +52,6 @@ function mergeBoardBuckets(target, addition) {
   }
 }
 
-/** 예전 계정별 게시판 키를 공용 키로 한 번만 합침 */
 function ensureBoardPostsMergedOnce() {
   try {
     if (localStorage.getItem(MERGE_FLAG)) return;
@@ -70,26 +70,14 @@ function ensureBoardPostsMergedOnce() {
 
 let boardMergeChecked = false;
 
-const API_TIMEOUT_MS = 18_000;
-
-async function fetchWithTimeout(url, options = {}) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
-  try {
-    return await fetch(url, { ...options, signal: ctrl.signal });
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-async function fetchBoardsFromServer(toolId) {
-  const res = await fetchWithTimeout(`/api/board?toolId=${encodeURIComponent(toolId)}`);
-  if (!res.ok) throw new Error(`API_${res.status}`);
-  const data = await res.json();
-  if (!data?.ok) throw new Error(data?.error || "API_ERROR");
+/** @param {import("@supabase/supabase-js").SupabaseClient} sb */
+function rowToPost(row) {
   return {
-    service: Array.isArray(data?.boards?.service) ? data.boards.service : [],
-    tutorial: Array.isArray(data?.boards?.tutorial) ? data.boards.tutorial : [],
+    id: row.id,
+    title: row.title,
+    body: row.body ?? "",
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    author: row.author ?? null,
   };
 }
 
@@ -104,8 +92,11 @@ export function useServiceBoardPosts(toolId) {
   }
 
   const [version, setVersion] = useState(0);
-  const [remoteEnabled, setRemoteEnabled] = useState(true);
+  /** Supabase 사용 가능 여부(키 있음 + 마지막 로드 성공) */
+  const [useRemote, setUseRemote] = useState(() => !!getSupabase());
   const [remoteBoards, setRemoteBoards] = useState({ service: [], tutorial: [] });
+
+  const bump = useCallback(() => setVersion((v) => v + 1), []);
 
   const data = useMemo(() => readAllRaw(STORAGE_BOARD_POSTS), [version]);
   const localBoards = useMemo(() => {
@@ -117,25 +108,47 @@ export function useServiceBoardPosts(toolId) {
     };
   }, [data, toolId]);
 
-  const boards = remoteEnabled ? remoteBoards : localBoards;
-
-  const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const boards = useRemote ? remoteBoards : localBoards;
 
   useEffect(() => {
     let cancelled = false;
     if (!toolId) return;
-    if (!remoteEnabled) return;
-    fetchBoardsFromServer(toolId)
-      .then((next) => {
-        if (!cancelled) setRemoteBoards(next);
-      })
-      .catch(() => {
-        if (!cancelled) setRemoteEnabled(false);
-      });
+
+    const sb = getSupabase();
+    if (!sb) {
+      setUseRemote(false);
+      return;
+    }
+
+    (async () => {
+      const { data: rows, error } = await sb
+        .from("board_posts")
+        .select("id,tool_id,board,title,body,author,created_at")
+        .eq("tool_id", toolId)
+        .order("created_at", { ascending: false });
+
+      if (cancelled) return;
+      if (error) {
+        console.warn("[board_posts]", error.message);
+        setUseRemote(false);
+        return;
+      }
+
+      const service = [];
+      const tutorial = [];
+      for (const row of rows || []) {
+        const post = rowToPost(row);
+        if (row.board === "tutorial") tutorial.push(post);
+        else service.push(post);
+      }
+      setRemoteBoards({ service, tutorial });
+      setUseRemote(true);
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [toolId, remoteEnabled, version]);
+  }, [toolId, version]);
 
   const addPost = useCallback(
     async (board, { title, body }) => {
@@ -143,27 +156,20 @@ export function useServiceBoardPosts(toolId) {
       const b = body?.trim();
       if (!t) return false;
 
-      if (remoteEnabled) {
-        try {
-          const res = await fetchWithTimeout("/api/board", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              toolId,
-              board,
-              title: t,
-              body: b || "",
-              author: user?.id ?? null,
-            }),
-          });
-          if (res.ok) {
-            bump();
-            return true;
-          }
-        } catch {
-          /* 네트워크/타임아웃 → 로컬 저장으로 폴백 */
+      const sb = getSupabase();
+      if (sb && useRemote) {
+        const { error } = await sb.from("board_posts").insert({
+          tool_id: toolId,
+          board: board === "tutorial" ? "tutorial" : "service",
+          title: t,
+          body: b || "",
+          author: user?.id ?? null,
+        });
+        if (!error) {
+          bump();
+          return true;
         }
-        setRemoteEnabled(false);
+        console.warn("[board_posts insert]", error.message);
       }
 
       const all = readAllRaw(STORAGE_BOARD_POSTS);
@@ -181,29 +187,23 @@ export function useServiceBoardPosts(toolId) {
       else tutorial.push(post);
       all[toolId] = { service, tutorial };
       writeAllRaw(STORAGE_BOARD_POSTS, all);
+      setUseRemote(false);
       bump();
       return true;
     },
-    [toolId, bump, user?.id, remoteEnabled]
+    [toolId, bump, user?.id, useRemote]
   );
 
   const deletePost = useCallback(
     async (board, postId) => {
-      if (remoteEnabled) {
-        try {
-          const res = await fetchWithTimeout("/api/board", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toolId, board, postId }),
-          });
-          if (res.ok) {
-            bump();
-            return;
-          }
-        } catch {
-          /* fall through */
+      const sb = getSupabase();
+      if (sb && useRemote) {
+        const { error } = await sb.from("board_posts").delete().eq("id", postId);
+        if (!error) {
+          bump();
+          return;
         }
-        setRemoteEnabled(false);
+        console.warn("[board_posts delete]", error.message);
       }
 
       const all = readAllRaw(STORAGE_BOARD_POSTS);
@@ -213,9 +213,10 @@ export function useServiceBoardPosts(toolId) {
       const list = Array.isArray(cur[key]) ? cur[key].filter((p) => p.id !== postId) : [];
       all[toolId] = { ...cur, [key]: list };
       writeAllRaw(STORAGE_BOARD_POSTS, all);
+      setUseRemote(false);
       bump();
     },
-    [toolId, bump, remoteEnabled]
+    [toolId, bump, useRemote]
   );
 
   return { servicePosts: boards.service, tutorialPosts: boards.tutorial, addPost, deletePost };
