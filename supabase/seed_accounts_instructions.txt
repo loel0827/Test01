@@ -1,0 +1,15 @@
+[Loel / Luna / kakaovx 등 초기 계정 만들기]
+
+1) Supabase → Authentication → Users → "Add user" → "Create new user"
+2) 각 계정마다:
+   - Email: 아이디만 소문자로 @shortcut.internal 붙인 주소
+       예) Loel → loel@shortcut.internal
+           Luna → luna@shortcut.internal
+           kakaovx → kakaovx@shortcut.internal
+   - Password: 원하는 비밀번호 (앱 로그인 시 그대로 사용)
+       관리자 kakaovx 예시: 비밀번호 kakaovx1!
+   - User Metadata (JSON): { "display_id": "Loel" }  ← 화면에 보일 아이디(대소문자 유지)
+
+3) kakaovx 를 관리자로: promote_admin_kakaovx.sql 실행
+
+※ 앱 로그인 창에는 "아이디"에 Loel / Luna / kakaovx 처럼 입력하면 됩니다. (내부에서 이메일로 변환)

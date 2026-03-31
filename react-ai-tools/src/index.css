@@ -769,6 +769,11 @@ body {
   white-space: nowrap;
 }
 
+.auth-bar__settings {
+  font-weight: 500;
+  color: var(--text);
+}
+
 .login-modal-overlay {
   position: fixed;
   inset: 0;
@@ -800,6 +805,136 @@ body {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.login-modal__tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.login-modal__tab {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+
+.login-modal__tab--active {
+  color: var(--text);
+  border-bottom-color: var(--board-accent, #8b5cf6);
+  font-weight: 600;
+}
+
+.login-modal__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.login-modal__hint code {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-users {
+  min-height: 100vh;
+  padding: 1.25rem 1.5rem 2rem;
+  max-width: 720px;
+  margin: 0 auto;
+  color: var(--text);
+}
+
+.admin-users__head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-users__title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.admin-users__note {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.admin-users__note code {
+  font-size: 0.75rem;
+}
+
+.admin-users__msg {
+  margin-bottom: 0.75rem;
+}
+
+.admin-users__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-users__table th,
+.admin-users__table td {
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-users__table th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.admin-users__self {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.admin-users__del {
+  color: #f87171;
+}
+
+.admin-settings__section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-settings__section:last-of-type {
+  border-bottom: none;
+}
+
+.admin-settings__h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-settings__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 320px;
+}
+
+.admin-settings__submit {
+  align-self: flex-start;
+  margin-top: 0.25rem;
 }
 
 .login-modal__form {

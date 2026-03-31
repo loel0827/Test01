@@ -1,4 +1,5 @@
 # Node / Vite (React 앱)
+node_modules/
 react-ai-tools/node_modules/
 react-ai-tools/dist/
 react-ai-tools/.vite/

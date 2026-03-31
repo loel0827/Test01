@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { initialCategories, createInitialCategories } from "../data/initialData.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { getSupabase } from "../lib/supabaseClient.js";
 import { guestStorageKeys, userStorageKeys } from "../utils/storageKeys.js";
 
 /** 게스트 키 (다른 모듈·문서 호환용) */
@@ -9,7 +10,7 @@ export const STORAGE_FAVS = "ai-tools-favorites";
 export const STORAGE_ACTIVE = "ai-tools-active-tool";
 
 function keysForUser(user) {
-  return user ? userStorageKeys(user.id) : guestStorageKeys();
+  return user?.id ? userStorageKeys(user.id) : guestStorageKeys();
 }
 
 function loadCategoriesRaw(keys) {
@@ -171,11 +172,40 @@ export function useAiToolsState() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const prevUserId = useRef(user?.id ?? null);
+  const categoriesRef = useRef(categories);
+  const favoritesRef = useRef(favorites);
   useEffect(() => {
-    const cur = user?.id ?? null;
-    if (prevUserId.current === cur) return;
-    prevUserId.current = cur;
+    categoriesRef.current = categories;
+  }, [categories]);
+  useEffect(() => {
+    favoritesRef.current = favorites;
+  }, [favorites]);
+
+  const remoteTimerRef = useRef(null);
+  const scheduleRemotePersist = useCallback(() => {
+    const uid = user?.uid;
+    if (!uid || !getSupabase()) return;
+    if (remoteTimerRef.current) clearTimeout(remoteTimerRef.current);
+    remoteTimerRef.current = setTimeout(async () => {
+      remoteTimerRef.current = null;
+      const sb = getSupabase();
+      if (!sb || !uid) return;
+      const { error } = await sb.from("user_app_state").upsert({
+        user_id: uid,
+        categories: categoriesRef.current,
+        favorites: [...favoritesRef.current],
+        active_tool_id: activeToolIdRef.current,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) console.warn("[user_app_state]", error.message);
+    }, 450);
+  }, [user?.uid]);
+
+  const prevSessionKeyRef = useRef(null);
+  useEffect(() => {
+    const key = user?.uid ? `u:${user.uid}` : "guest";
+    if (prevSessionKeyRef.current === key) return;
+    prevSessionKeyRef.current = key;
     const k = keysForUser(user);
     ensureSeededStorage(k);
     const loaded = getInitialCategories(k);
@@ -186,7 +216,61 @@ export function useAiToolsState() {
     setActiveToolId(aid);
     setSearchQuery("");
     setFavoritesOnly(false);
-  }, [user?.id, user]);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid || !getSupabase()) return;
+    let cancelled = false;
+    const sb = getSupabase();
+    const k = keysForUser(user);
+    (async () => {
+      const { data, error } = await sb
+        .from("user_app_state")
+        .select("categories,favorites,active_tool_id")
+        .eq("user_id", user.uid)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.warn("[user_app_state load]", error.message);
+        return;
+      }
+      if (data && isValidSavedCategories(data.categories)) {
+        const merged = mergeDefaultDescriptions(mergeMissingCategories(data.categories));
+        setCategories(merged);
+        setFavorites(new Set(Array.isArray(data.favorites) ? data.favorites : []));
+        const aid = data.active_tool_id || "chatgpt";
+        activeToolIdRef.current = aid;
+        setActiveToolId(aid);
+        try {
+          localStorage.setItem(k.categories, JSON.stringify(merged));
+          localStorage.setItem(k.favorites, JSON.stringify([...(Array.isArray(data.favorites) ? data.favorites : [])]));
+          localStorage.setItem(k.active, aid);
+        } catch {
+          /* ignore */
+        }
+      } else {
+        ensureSeededStorage(k);
+        const loaded = getInitialCategories(k);
+        const favs = buildInitialFavorites(loaded, k);
+        const aid = localStorage.getItem(k.active) || "chatgpt";
+        setCategories(loaded);
+        setFavorites(favs);
+        activeToolIdRef.current = aid;
+        setActiveToolId(aid);
+        const { error: upErr } = await sb.from("user_app_state").upsert({
+          user_id: user.uid,
+          categories: loaded,
+          favorites: [...favs],
+          active_tool_id: aid,
+          updated_at: new Date().toISOString(),
+        });
+        if (upErr) console.warn("[user_app_state seed]", upErr.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, user?.id]);
 
   const persistCategories = useCallback(
     (next) => {
@@ -195,8 +279,9 @@ export function useAiToolsState() {
       } catch {
         /* ignore */
       }
+      scheduleRemotePersist();
     },
-    [keys.categories]
+    [keys.categories, scheduleRemotePersist]
   );
 
   const persistFavorites = useCallback(
@@ -206,8 +291,9 @@ export function useAiToolsState() {
       } catch {
         /* ignore */
       }
+      scheduleRemotePersist();
     },
-    [keys.favorites]
+    [keys.favorites, scheduleRemotePersist]
   );
 
   const persistActive = useCallback(
@@ -217,8 +303,9 @@ export function useAiToolsState() {
       } catch {
         /* ignore */
       }
+      scheduleRemotePersist();
     },
-    [keys.active]
+    [keys.active, scheduleRemotePersist]
   );
 
   const sections = useMemo(() => {
