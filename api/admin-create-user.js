@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const isAdminCaller = require("./_isAdminCaller.js");
 
 function env(name, ...alts) {
   for (const n of [name, ...alts]) {
@@ -89,8 +90,12 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { data: me, error: profErr } = await userClient.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  if (profErr || me?.role !== "admin") {
+  const { data: me, error: profErr } = await userClient
+    .from("profiles")
+    .select("role, display_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profErr || !isAdminCaller(me)) {
     res.status(403).json({ ok: false, error: "Forbidden" });
     return;
   }

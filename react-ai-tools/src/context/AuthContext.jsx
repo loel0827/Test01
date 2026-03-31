@@ -1,32 +1,43 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "../lib/supabaseClient.js";
 import { displayIdToEmail, normalizeDisplayIdForSignup } from "../lib/authEmail.js";
+import { isElevatedAdminDisplayId } from "../lib/adminDisplayIds.js";
 
 const AuthContext = createContext(null);
 
+function mergeAdminRole(displayId, dbRole) {
+  const fromDb = dbRole === "admin" ? "admin" : "user";
+  if (fromDb === "admin") return "admin";
+  if (isElevatedAdminDisplayId(displayId)) return "admin";
+  return "user";
+}
+
 async function fetchUserShape(sb, authUser) {
   const { data } = await sb.from("profiles").select("display_id, role").eq("id", authUser.id).maybeSingle();
-  if (data?.display_id) {
-    return { id: data.display_id, uid: authUser.id, role: data.role === "admin" ? "admin" : "user" };
-  }
-  const fallback = authUser.email?.split("@")[0] ?? "user";
-  return { id: fallback, uid: authUser.id, role: "user" };
+  const displayId = data?.display_id ?? authUser.email?.split("@")[0] ?? "user";
+  const role = mergeAdminRole(displayId, data?.role);
+  return { id: displayId, uid: authUser.id, role };
 }
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  /** 로그아웃 후 늦게 끝난 fetchUserShape 가 다시 로그인 상태로 만드는 것 방지 */
+  const applyGenRef = useRef(0);
 
   const applySession = useCallback(async (session) => {
     const sb = getSupabase();
     if (!session?.user || !sb) {
+      applyGenRef.current += 1;
       setUser(null);
       setAccessToken(null);
       return;
     }
+    const generation = (applyGenRef.current += 1);
     setAccessToken(session.access_token ?? null);
     const shape = await fetchUserShape(sb, session.user);
+    if (generation !== applyGenRef.current) return;
     setUser(shape);
   }, []);
 
@@ -43,7 +54,13 @@ export function AuthProvider({ children }) {
         if (!cancelled) setAuthReady(true);
       });
     });
-    const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        applyGenRef.current += 1;
+        setUser(null);
+        setAccessToken(null);
+        return;
+      }
       applySession(session);
     });
     return () => {
@@ -96,10 +113,17 @@ export function AuthProvider({ children }) {
   }, [applySession]);
 
   const logout = useCallback(async () => {
-    const sb = getSupabase();
-    if (sb) await sb.auth.signOut();
+    applyGenRef.current += 1;
     setUser(null);
     setAccessToken(null);
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        await sb.auth.signOut({ scope: "local" });
+      } catch (e) {
+        console.warn("[auth signOut]", e);
+      }
+    }
   }, []);
 
   const value = useMemo(

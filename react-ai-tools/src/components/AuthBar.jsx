@@ -21,7 +21,13 @@ export function AuthBar({ className = "" }) {
                 환경설정
               </Link>
             ) : null}
-            <button type="button" className="link-btn" onClick={() => logout()}>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => {
+                void logout();
+              }}
+            >
               로그아웃
             </button>
           </>
