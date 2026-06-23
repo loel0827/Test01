@@ -1,4 +1,4 @@
-# Caddy 웹 서버로 이 폴더를 http://localhost:8080 에 서빙
+# Caddy static server -> http://localhost:8080 (React build in react-ai-tools/dist)
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
@@ -32,41 +32,79 @@ function Find-CaddyExe {
 $caddyExe = Find-CaddyExe
 if (-not $caddyExe) {
   Write-Host ""
-  Write-Host "Caddy가 설치되어 있지 않습니다." -ForegroundColor Yellow
-  Write-Host "winget으로 설치를 시도합니다. (관리자 승인이 뜰 수 있습니다)" -ForegroundColor DarkGray
+  Write-Host "[!] Caddy is not installed." -ForegroundColor Yellow
+  Write-Host "    Trying winget install (admin prompt may appear)..." -ForegroundColor DarkGray
   Write-Host ""
   $winget = Get-Command winget -ErrorAction SilentlyContinue
   if (-not $winget) {
-    Write-Host "winget을 찾을 수 없습니다. 수동 설치:" -ForegroundColor Red
-    Write-Host "  https://caddyserver.com/docs/install#windows" -ForegroundColor Cyan
+    Write-Host "[!] winget not found. Install manually:" -ForegroundColor Red
+    Write-Host "    https://caddyserver.com/docs/install#windows" -ForegroundColor Cyan
     exit 1
   }
   & winget install --id CaddyServer.Caddy -e --accept-package-agreements --accept-source-agreements
   if ($LASTEXITCODE -ne 0) {
     Write-Host ""
-    Write-Host "설치에 실패했을 수 있습니다. 관리자 권한 터미널에서 다시 실행하거나:" -ForegroundColor Yellow
-    Write-Host "  winget install CaddyServer.Caddy" -ForegroundColor Cyan
+    Write-Host "[!] Install may have failed. Try in an admin terminal:" -ForegroundColor Yellow
+    Write-Host "    winget install CaddyServer.Caddy" -ForegroundColor Cyan
     exit 1
   }
   Refresh-PathEnv
   $caddyExe = Find-CaddyExe
 }
+
 if (-not $caddyExe) {
   Write-Host ""
-  Write-Host "Caddy 설치 후 이 창을 닫고 '웹으로보기.bat'을 다시 실행해 주세요." -ForegroundColor Yellow
+  Write-Host "[!] Caddy not found. Close this window and run the bat file again." -ForegroundColor Yellow
   exit 1
 }
 
 $caddyfile = Join-Path $PSScriptRoot "Caddyfile"
 if (-not (Test-Path -LiteralPath $caddyfile)) {
-  Write-Host "Caddyfile이 없습니다: $caddyfile" -ForegroundColor Red
+  Write-Host "[!] Caddyfile missing: $caddyfile" -ForegroundColor Red
+  exit 1
+}
+
+$reactDir = Join-Path $PSScriptRoot "react-ai-tools"
+$distDir = Join-Path $reactDir "dist"
+$distIndex = Join-Path $distDir "index.html"
+$npm = Get-Command npm -ErrorAction SilentlyContinue
+
+if (Test-Path -LiteralPath (Join-Path $reactDir "package.json")) {
+  if ($npm) {
+    Write-Host ""
+    Write-Host "  Building React app (npm run build)..." -ForegroundColor DarkGray
+    Push-Location $reactDir
+    & npm run build
+    $buildOk = $LASTEXITCODE -eq 0
+    Pop-Location
+    if (-not $buildOk) {
+      Write-Host ""
+      Write-Host "[!] Build failed. Run: cd react-ai-tools && npm install && npm run build" -ForegroundColor Red
+      exit 1
+    }
+    Write-Host "  Build OK." -ForegroundColor DarkGray
+  }
+  elseif (-not (Test-Path -LiteralPath $distIndex)) {
+    Write-Host ""
+    Write-Host "[!] npm not found and dist/index.html is missing." -ForegroundColor Yellow
+    Write-Host "    Install Node.js or run npm run build in react-ai-tools first." -ForegroundColor Yellow
+    exit 1
+  }
+  else {
+    Write-Host ""
+    Write-Host "  npm not found - using existing dist folder." -ForegroundColor Yellow
+  }
+}
+elseif (-not (Test-Path -LiteralPath $distIndex)) {
+  Write-Host ""
+  Write-Host "[!] react-ai-tools/dist/index.html not found. Build the React app first." -ForegroundColor Red
   exit 1
 }
 
 Write-Host ""
-Write-Host "  Caddy 웹 서버 실행 중  ($caddyExe)" -ForegroundColor Green
-Write-Host "  브라우저:  http://localhost:8080" -ForegroundColor Cyan
-Write-Host "  중지: Ctrl+C" -ForegroundColor DarkGray
+Write-Host "  Caddy running: $caddyExe" -ForegroundColor Green
+Write-Host "  Open:        http://localhost:8080" -ForegroundColor Cyan
+Write-Host "  Stop:        Ctrl+C" -ForegroundColor DarkGray
 Write-Host ""
 
 & $caddyExe run --config $caddyfile --adapter caddyfile

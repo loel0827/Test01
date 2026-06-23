@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Logo } from "./Logo.jsx";
 import { AuthBar } from "./AuthBar.jsx";
 
@@ -18,6 +19,9 @@ export function Header({
         </div>
       </div>
       <div className="site-header__actions">
+        <Link to="/screen-golf" className="link-btn site-header__nav-link">
+          스크린골프
+        </Link>
         <button
           type="button"
           className="link-btn"

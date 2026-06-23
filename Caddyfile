@@ -1,8 +1,11 @@
-# Caddy — 실제 웹 서버 (정적 파일 + gzip)
+# Caddy — React 빌드 결과물 (react-ai-tools/dist) 서빙
 # 문서: https://caddyserver.com/docs/caddyfile
 
 :8080 {
-	root * .
+	root * react-ai-tools/dist
 	encode gzip
+
+	# React Router 경로 (/screen-golf, /admin/settings 등)
+	try_files {path} {path}/ /index.html
 	file_server
 }
