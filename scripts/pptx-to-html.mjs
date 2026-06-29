@@ -173,7 +173,7 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
 .fs-counter{font-size:12px;color:var(--gold-dim);font-weight:700;letter-spacing:2px}
 .fs-body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative;padding:8px 64px}
 .fs-stage{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-.fs-stage .slide-frame{width:100%;height:100%;max-height:100%;aspect-ratio:16/9;border-radius:0}
+.fs-stage .slide-frame{aspect-ratio:16/9;height:100%;width:auto;max-width:100%;max-height:100%;border-radius:0}
 .fs-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:5;background:rgba(20,20,20,.85);border:1px solid #444;color:var(--white);width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
 .fs-nav:hover:not(:disabled){background:#1e1e1e;border-color:var(--gold-dim)}
 .fs-nav:disabled{opacity:.3;cursor:not-allowed}
