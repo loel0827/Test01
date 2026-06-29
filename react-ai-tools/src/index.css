@@ -1391,11 +1391,24 @@ body {
   overflow: hidden;
 }
 
-.screen-golf-page__back {
+.screen-golf-page__toolbar {
   position: absolute;
   top: 12px;
   left: 12px;
+  right: 12px;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.screen-golf-page__toolbar > * {
+  pointer-events: auto;
+}
+
+.screen-golf-page__back {
   padding: 0.35rem 0.75rem;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.65);
@@ -1406,6 +1419,18 @@ body {
   font-weight: 600;
 }
 
+.screen-golf-page__fullscreen {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(201, 168, 76, 0.55);
+  color: #c9a84c;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.screen-golf-page__fullscreen:hover,
 .screen-golf-page__back:hover {
   background: rgba(0, 0, 0, 0.85);
 }

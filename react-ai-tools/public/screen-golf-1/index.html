@@ -12,9 +12,11 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
 #logo{grid-area:logo;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #1e1e1e;border-right:1px solid #1e1e1e}
 #logo .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold)}
 #logo span{font-size:11px;letter-spacing:2px;color:var(--gold);font-weight:700;text-transform:uppercase}
-#topbar{grid-area:topbar;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #1e1e1e;position:relative}
-#slide-title{font-size:13px;color:var(--gray);letter-spacing:1px}
-#slide-counter{font-size:12px;color:var(--gold-dim);font-weight:700;letter-spacing:2px}
+#topbar{grid-area:topbar;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #1e1e1e;position:relative;gap:16px}
+#topbar-left{display:flex;align-items:center;gap:14px;min-width:0}
+#slide-title{font-size:13px;color:var(--gray);letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#slide-counter{font-size:12px;color:var(--gold-dim);font-weight:700;letter-spacing:2px;flex-shrink:0}
+#btn-fullscreen{font-size:12px;padding:6px 14px;flex-shrink:0}
 #progress-bar{position:absolute;bottom:0;left:220px;height:2px;background:var(--gold);transition:width .4s cubic-bezier(.4,0,.2,1)}
 #thumbs{grid-area:thumb;overflow-y:auto;border-right:1px solid #1e1e1e;padding:12px 10px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin}
 .thumb-item{position:relative;cursor:pointer;border-radius:4px;overflow:hidden;border:1.5px solid transparent;transition:border-color .2s,transform .15s;flex-shrink:0;aspect-ratio:16/9;background:#111}
@@ -34,13 +36,35 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
 .ctrl-btn:hover:not(:disabled){background:#1e1e1e;border-color:var(--gold-dim)}
 .ctrl-btn:disabled{opacity:.35;cursor:not-allowed}
 .ctrl-btn--gold{border-color:var(--gold);color:var(--gold)}
-@media(max-width:900px){#app{grid-template-columns:1fr;grid-template-areas:"topbar" "stage" "controls"}#thumbs{display:none}#progress-bar{left:0}#controls{margin-left:0}}
+.fs-mode{position:fixed;inset:0;z-index:10000;background:#000;display:none;flex-direction:column}
+.fs-mode.is-open{display:flex}
+.fs-header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #222;flex-shrink:0;gap:12px}
+.fs-header-title{font-size:13px;color:var(--gray);letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs-header-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.fs-counter{font-size:12px;color:var(--gold-dim);font-weight:700;letter-spacing:2px}
+.fs-body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative;padding:8px 64px}
+.fs-stage{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.fs-stage .slide-frame{width:100%;height:100%;max-height:100%;aspect-ratio:16/9;border-radius:0}
+.fs-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:5;background:rgba(20,20,20,.85);border:1px solid #444;color:var(--white);width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s,border-color .15s}
+.fs-nav:hover:not(:disabled){background:#1e1e1e;border-color:var(--gold-dim)}
+.fs-nav:disabled{opacity:.3;cursor:not-allowed}
+.fs-nav--prev{left:16px}
+.fs-nav--next{right:16px}
+.fs-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;color:#555;letter-spacing:1px}
+@media(max-width:900px){#app{grid-template-columns:1fr;grid-template-areas:"topbar" "stage" "controls"}#thumbs{display:none}#progress-bar{left:0}#controls{margin-left:0}.fs-body{padding:8px 48px}.fs-nav{width:36px;height:36px;font-size:14px}}
 </style>
 </head>
 <body>
 <div id="app">
   <div id="logo"><div class="dot"></div><span>Screen Golf 1</span></div>
-  <div id="topbar"><div id="slide-title"></div><div id="slide-counter"></div><div id="progress-bar"></div></div>
+  <div id="topbar">
+    <div id="topbar-left">
+      <div id="slide-title"></div>
+      <button type="button" class="ctrl-btn ctrl-btn--gold" id="btn-fullscreen">⛶ 전체보기</button>
+    </div>
+    <div id="slide-counter"></div>
+    <div id="progress-bar"></div>
+  </div>
   <div id="thumbs"></div>
   <div id="stage"><div id="stage-inner"></div></div>
   <div id="controls">
@@ -48,29 +72,43 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
     <button type="button" class="ctrl-btn ctrl-btn--gold" id="btn-next">다음 ▶</button>
   </div>
 </div>
+<div id="fullscreen" class="fs-mode" aria-hidden="true">
+  <header class="fs-header">
+    <span class="fs-header-title" id="fs-title"></span>
+    <div class="fs-header-right">
+      <span class="fs-counter" id="fs-counter"></span>
+      <button type="button" class="ctrl-btn ctrl-btn--gold" id="fs-close">닫기 ✕</button>
+    </div>
+  </header>
+  <div class="fs-body">
+    <button type="button" class="fs-nav fs-nav--prev" id="fs-prev" aria-label="이전 슬라이드">◀</button>
+    <div class="fs-stage" id="fs-stage-inner"></div>
+    <button type="button" class="fs-nav fs-nav--next" id="fs-next" aria-label="다음 슬라이드">▶</button>
+    <span class="fs-hint">← → Space · Esc 종료</span>
+  </div>
+</div>
 <script>
 const SLIDES = [{"title":"차세대 스크린골프","src":"assets/slides/slide-01.png"},{"title":"CONTENTS","src":"assets/slides/slide-02.png"},{"title":"제작 자동화","src":"assets/slides/slide-03.png"},{"title":"디자인 방향","src":"assets/slides/slide-04.png"},{"title":"디자인 방향","src":"assets/slides/slide-05.png","video":{"src":"assets/media1.mp4","poster":"assets/image6.png","box":{"left":-3.3655949256342956,"top":-3.2379313696898997,"width":103.73117891513562,"height":103.73117526975794}}},{"title":"디자인 방향","src":"assets/slides/slide-06.png"},{"title":"디자인 방향","src":"assets/slides/slide-07.png"},{"title":"디자인 방향","src":"assets/slides/slide-08.png"},{"title":"디자인 방향","src":"assets/slides/slide-09.png"},{"title":"디자인 방향","src":"assets/slides/slide-10.png"},{"title":"디자인 방향","src":"assets/slides/slide-11.png"},{"title":"디자인 방향","src":"assets/slides/slide-12.png"},{"title":"디자인 방향","src":"assets/slides/slide-13.png"},{"title":"디자인 방향","src":"assets/slides/slide-14.png"},{"title":"현재 진행상황","src":"assets/slides/slide-15.png"},{"title":"추후 목표","src":"assets/slides/slide-16.png"},{"title":"추후 목표","src":"assets/slides/slide-17.png"},{"title":"종합 로드맵","src":"assets/slides/slide-18.png"},{"title":"감사합니다","src":"assets/slides/slide-19.png"}];
 let current = 0;
+let fullscreenOpen = false;
 const stage = document.getElementById("stage-inner");
+const fsEl = document.getElementById("fullscreen");
+const fsStage = document.getElementById("fs-stage-inner");
 const thumbs = document.getElementById("thumbs");
 
-function pauseVideos() {
-  stage.querySelectorAll("video").forEach((v) => { try { v.pause(); } catch(e) {} });
+function pauseAllVideos() {
+  document.querySelectorAll("video").forEach((v) => { try { v.pause(); } catch(e) {} });
 }
 
-function mountSlide(i) {
-  pauseVideos();
-  stage.innerHTML = "";
+function buildSlideFrame(i, autoplayVideo) {
   const s = SLIDES[i];
   const frame = document.createElement("div");
   frame.className = "slide-frame";
-
   const img = document.createElement("img");
   img.className = "slide-png";
   img.src = s.src;
   img.alt = s.title;
   frame.appendChild(img);
-
   if (s.video) {
     const v = document.createElement("video");
     v.className = "slide-video";
@@ -84,16 +122,17 @@ function mountSlide(i) {
     v.addEventListener("pause", () => img.classList.remove("is-hidden"));
     v.addEventListener("ended", () => img.classList.remove("is-hidden"));
     frame.insertBefore(v, img);
-    v.play().catch(() => {});
+    if (autoplayVideo) v.play().catch(() => {});
   }
-
-  stage.appendChild(frame);
+  return frame;
 }
 
-function goTo(idx) {
-  if (idx < 0 || idx >= SLIDES.length) return;
-  current = idx;
-  mountSlide(current);
+function mountSlideTo(container, i, autoplayVideo) {
+  container.innerHTML = "";
+  container.appendChild(buildSlideFrame(i, autoplayVideo));
+}
+
+function updateChrome() {
   document.getElementById("slide-title").textContent = SLIDES[current].title;
   document.getElementById("slide-counter").textContent =
     String(current + 1).padStart(2, "0") + " / " + String(SLIDES.length).padStart(2, "0");
@@ -103,8 +142,52 @@ function goTo(idx) {
   document.getElementById("btn-next").disabled = current === SLIDES.length - 1;
 }
 
+function updateFsChrome() {
+  document.getElementById("fs-title").textContent = SLIDES[current].title;
+  document.getElementById("fs-counter").textContent =
+    String(current + 1).padStart(2, "0") + " / " + String(SLIDES.length).padStart(2, "0");
+  document.getElementById("fs-prev").disabled = current === 0;
+  document.getElementById("fs-next").disabled = current === SLIDES.length - 1;
+}
+
+function renderSlides() {
+  pauseAllVideos();
+  mountSlideTo(stage, current, !fullscreenOpen);
+  if (fullscreenOpen) {
+    mountSlideTo(fsStage, current, true);
+    updateFsChrome();
+  }
+  updateChrome();
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= SLIDES.length) return;
+  current = idx;
+  renderSlides();
+}
+
 function next() { if (current < SLIDES.length - 1) goTo(current + 1); }
 function prev() { if (current > 0) goTo(current - 1); }
+
+function openFullscreen() {
+  if (fullscreenOpen) return;
+  fullscreenOpen = true;
+  fsEl.classList.add("is-open");
+  fsEl.setAttribute("aria-hidden", "false");
+  renderSlides();
+  const req = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen;
+  if (req) req.call(fsEl).catch(() => {});
+}
+
+function closeFullscreen() {
+  if (!fullscreenOpen) return;
+  fullscreenOpen = false;
+  fsEl.classList.remove("is-open");
+  fsEl.setAttribute("aria-hidden", "true");
+  fsStage.innerHTML = "";
+  renderSlides();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
 
 SLIDES.forEach((s, i) => {
   const d = document.createElement("div");
@@ -119,10 +202,37 @@ SLIDES.forEach((s, i) => {
 
 document.getElementById("btn-prev").onclick = prev;
 document.getElementById("btn-next").onclick = next;
+document.getElementById("btn-fullscreen").onclick = openFullscreen;
+document.getElementById("fs-close").onclick = closeFullscreen;
+document.getElementById("fs-prev").onclick = prev;
+document.getElementById("fs-next").onclick = next;
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && fullscreenOpen) {
+    fullscreenOpen = false;
+    fsEl.classList.remove("is-open");
+    fsEl.setAttribute("aria-hidden", "true");
+    fsStage.innerHTML = "";
+    renderSlides();
+  }
+});
+
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && fullscreenOpen) { e.preventDefault(); closeFullscreen(); return; }
+  if (e.key === "f" || e.key === "F") {
+    if (e.target.closest("input, textarea")) return;
+    e.preventDefault();
+    fullscreenOpen ? closeFullscreen() : openFullscreen();
+    return;
+  }
   if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); next(); }
   if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); prev(); }
 });
+
+window.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "OPEN_FULLSCREEN") openFullscreen();
+});
+
 goTo(0);
 </script>
 </body>
