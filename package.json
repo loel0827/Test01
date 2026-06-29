@@ -7,6 +7,6 @@
     "adm-zip": "^0.5.16"
   },
   "scripts": {
-    "pptx:screen-golf-1": "node scripts/pptx-to-html.mjs"
+    "pptx:screen-golf-1": "node scripts/pptx-to-html.mjs \"c:/Users/kakaovx/Desktop/PT용/스크린골프_중간보고_최종.pptx\""
   }
 }

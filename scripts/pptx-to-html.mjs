@@ -1,10 +1,11 @@
 /**
- * PPTX -> HTML presentation (with video support)
- * Usage: node scripts/pptx-to-html.mjs <input.pptx> <outputDir>
+ * PPTX -> HTML presentation (PNG slides + embedded video)
+ * Usage: node scripts/pptx-to-html.mjs <input.pptx> [outputDir]
  */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { spawnSync } from "child_process";
 import AdmZip from "adm-zip";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,164 +26,101 @@ function parseRels(relsPath) {
   return map;
 }
 
-function parseBg(xml) {
-  const m = xml.match(/<p:bgPr>[\s\S]*?<a:srgbClr val="([0-9A-Fa-f]{6})"/);
-  return m ? `#${m[1]}` : "#0A0A0A";
-}
-
-function parseXfrm(block) {
-  const off = block.match(/<a:off x="(-?\d+)" y="(-?\d+)"/);
-  const ext = block.match(/<a:ext cx="(\d+)" cy="(\d+)"/);
-  if (!off || !ext) return null;
-  return {
-    left: pct(off[1], SW),
-    top: pct(off[2], SH),
-    width: pct(ext[1], SW),
-    height: pct(ext[2], SH),
-  };
-}
-
-function parseTextRuns(block) {
-  const parts = [];
-  let align = "left";
-  const ap = block.match(/<a:pPr[^>]*algn="([^"]+)"/);
-  if (ap) {
-    const map = { ctr: "center", r: "right", l: "left" };
-    align = map[ap[1]] || "left";
-  }
-  for (const p of block.matchAll(/<a:p>([\s\S]*?)<\/a:p>/g)) {
-    let line = "";
-    let sz = 1200;
-    let color = "#FFFFFF";
-    let bold = false;
-    for (const r of p[1].matchAll(/<a:r>([\s\S]*?)<\/a:r>/g)) {
-      const rp = r[1];
-      const t = rp.match(/<a:t>([\s\S]*?)<\/a:t>/);
-      if (!t) continue;
-      const szM = rp.match(/<a:rPr[^>]*sz="(\d+)"/);
-      const colM = rp.match(/<a:srgbClr val="([0-9A-Fa-f]{6})"/);
-      const bM = rp.match(/<a:rPr[^>]*\sb="1"/);
-      if (szM) sz = Number(szM[1]);
-      if (colM) color = `#${colM[1]}`;
-      if (bM) bold = true;
-      line += t[1];
-    }
-    if (line.trim()) parts.push({ text: line, sz, color, bold, align });
-  }
-  return parts;
-}
-
-function styleBox(box) {
-  return `left:${box.left}%;top:${box.top}%;width:${box.width}%;height:${box.height}%;`;
-}
-
-function buildSlideHtml(slideXml, rels, assetsPrefix) {
-  const bg = parseBg(slideXml);
-  const layers = [];
-
-  for (const block of slideXml.matchAll(/<p:pic>([\s\S]*?)<\/p:pic>/g)) {
-    const pic = block[1];
-    const box = parseXfrm(pic);
-    if (!box) continue;
-    const video = pic.match(/<a:videoFile r:link="([^"]+)"/);
-    const embed = pic.match(/<a:blip r:embed="([^"]+)"/);
-    if (video) {
-      const vTarget = rels[video[1]];
-      const posterTarget = embed ? rels[embed[1]] : null;
-      if (vTarget) {
-        const vName = path.basename(vTarget);
-        const posterName = posterTarget ? path.basename(posterTarget) : "";
-        layers.push({
-          z: layers.length,
-          html: `<video class="layer-vid" src="${assetsPrefix}/${vName}" ${posterName ? `poster="${assetsPrefix}/${posterName}"` : ""} controls playsinline preload="metadata"></video>`,
-          box,
-          isVideo: true,
-        });
-      }
-      continue;
-    }
-    if (embed) {
-      const target = rels[embed[1]];
-      if (!target) continue;
-      const name = path.basename(target);
-      layers.push({
-        z: layers.length,
-        html: `<img alt="" src="${assetsPrefix}/${name}" />`,
-        box,
-      });
-    }
-  }
-
-  for (const block of slideXml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)) {
-    const sp = block[1];
-    if (!sp.includes("<p:txBody>")) {
-      const box = parseXfrm(sp);
-      if (!box) continue;
-      const fill = sp.match(/<a:srgbClr val="([0-9A-Fa-f]{6})"(?:><a:alpha val="(\d+)")?/);
-      if (fill && sp.includes("<a:solidFill>")) {
-        const alpha = fill[2] ? Number(fill[2]) / 100000 : 1;
-        layers.push({
-          z: layers.length,
-          html: `<div class="layer-shape" style="background:${`#${fill[1]}`};opacity:${alpha}"></div>`,
-          box,
-        });
-      }
-      continue;
-    }
-    const box = parseXfrm(sp);
-    if (!box) continue;
-    const runs = parseTextRuns(sp);
-    if (!runs.length) continue;
-    const inner = runs
-      .map((r) => {
-        const fs = (r.sz / 100) * (100 / 51.435);
-        return `<span style="color:${r.color};font-size:${fs}cqmin;font-weight:${r.bold ? 700 : 400};display:block;text-align:${r.align}">${escapeHtml(r.text)}</span>`;
-      })
-      .join("");
-    layers.push({
-      z: layers.length,
-      html: `<div class="layer-text">${inner}</div>`,
-      box,
-    });
-  }
-
-  const body = layers
-    .map(
-      (l) =>
-        `<div class="layer${l.isVideo ? " layer--video" : ""}" style="${styleBox(l.box)}">${l.html}</div>`
-    )
-    .join("\n");
-
-  return `<div class="slide-canvas" style="background:${bg}">${body}</div>`;
-}
-
-function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
 function slideTitle(slideXml) {
-  const texts = [...slideXml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((m) => m[1].trim()).filter(Boolean);
-  const big = texts.find((t) => t.length > 2 && !/^\d{2}$/.test(t) && !/^\d{2}\s\/\s\d{2}$/.test(t));
+  const texts = [...slideXml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)]
+    .map((m) => m[1].trim())
+    .filter(Boolean);
+  const big = texts.find(
+    (t) => t.length > 2 && !/^\d{2}$/.test(t) && !/^\d{2}\s\/\s\d{2}$/.test(t)
+  );
   return big || texts[0] || "Slide";
 }
 
 function getSlideOrder(presXml, presRels) {
   const ids = [...presXml.matchAll(/<p:sldId[^>]*r:id="([^"]+)"/g)].map((m) => m[1]);
-  return ids.map((id) => {
-    const target = presRels[id];
-    return path.basename(target, ".xml");
-  });
+  return ids.map((id) => path.basename(presRels[id], ".xml"));
+}
+
+function detectVideo(slideXml, rels) {
+  for (const block of slideXml.matchAll(/<p:pic>([\s\S]*?)<\/p:pic>/g)) {
+    const pic = block[1];
+    const video = pic.match(/<a:videoFile r:link="([^"]+)"/);
+    if (!video) continue;
+    const vTarget = rels[video[1]];
+    if (!vTarget) continue;
+    const off = pic.match(/<a:off x="(-?\d+)" y="(-?\d+)"/);
+    const ext = pic.match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+    const poster = pic.match(/<a:blip r:embed="([^"]+)"/);
+    const posterTarget = poster ? rels[poster[1]] : null;
+    return {
+      src: path.basename(vTarget),
+      poster: posterTarget ? path.basename(posterTarget) : null,
+      box:
+        off && ext
+          ? {
+              left: pct(off[1], SW),
+              top: pct(off[2], SH),
+              width: pct(ext[1], SW),
+              height: pct(ext[2], SH),
+            }
+          : { left: 0, top: 0, width: 100, height: 100 },
+    };
+  }
+  return null;
+}
+
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function exportPngSlides(pptxPath, outDir) {
+  const ps1 = path.join(__dirname, "pptx-export-png.ps1");
+  const result = spawnSync(
+    "powershell",
+    ["-ExecutionPolicy", "Bypass", "-File", ps1, "-PptxPath", pptxPath, "-OutDir", outDir],
+    { encoding: "utf8", timeout: 300000 }
+  );
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || "PowerPoint PNG export failed");
+  }
+  const slidesDir = path.join(outDir, "assets", "slides");
+  const files = fs.readdirSync(slidesDir).filter((f) => /^slide-\d+\.png$/i.test(f));
+  if (!files.length) {
+    throw new Error("No slide PNG files were exported");
+  }
+  return files.sort();
+}
+
+function extractMedia(pptxPath, assetsDir) {
+  const zip = new AdmZip(pptxPath);
+  const extractDir = path.join(assetsDir, "_extract");
+  fs.rmSync(extractDir, { recursive: true, force: true });
+  fs.mkdirSync(assetsDir, { recursive: true });
+  zip.extractAllTo(extractDir, true);
+  const mediaSrc = path.join(extractDir, "ppt/media");
+  if (fs.existsSync(mediaSrc)) {
+    for (const f of fs.readdirSync(mediaSrc)) {
+      fs.copyFileSync(path.join(mediaSrc, f), path.join(assetsDir, f));
+    }
+  }
+  fs.rmSync(extractDir, { recursive: true, force: true });
+}
+
+function cleanupOldLayerAssets(assetsDir) {
+  if (!fs.existsSync(assetsDir)) return;
+  for (const f of fs.readdirSync(assetsDir)) {
+    if (/^image\d+\.png$/i.test(f)) {
+      fs.unlinkSync(path.join(assetsDir, f));
+    }
+  }
 }
 
 function buildViewerHtml(slides, title) {
-  const templates = slides
-    .map(
-      (s, i) =>
-        `<template id="slide-tpl-${i}">${s.html}</template>`
-    )
-    .join("\n");
-
-  const meta = JSON.stringify(slides.map((s) => ({ title: s.title })));
+  const meta = JSON.stringify(slides);
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -206,16 +144,15 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
 .thumb-item{position:relative;cursor:pointer;border-radius:4px;overflow:hidden;border:1.5px solid transparent;transition:border-color .2s,transform .15s;flex-shrink:0;aspect-ratio:16/9;background:#111}
 .thumb-item:hover{transform:translateX(2px);border-color:var(--gold-dim)}
 .thumb-item.active{border-color:var(--gold)}
+.thumb-item img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
 .thumb-num{position:absolute;top:4px;left:6px;font-size:9px;color:var(--gold);font-weight:700;z-index:2;text-shadow:0 1px 3px #000}
 .thumb-label{position:absolute;bottom:0;left:0;right:0;padding:16px 6px 4px;font-size:8px;color:var(--gray);background:linear-gradient(transparent,rgba(0,0,0,.85));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2}
-#stage{grid-area:stage;display:flex;align-items:center;justify-content:center;padding:20px 24px 0;overflow:hidden;position:relative}
-#stage-inner{width:100%;max-width:1200px;container-type:size}
-.slide-canvas{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;container-type:size}
-.slide-canvas .layer{position:absolute;box-sizing:border-box;overflow:hidden}
-.slide-canvas .layer img,.slide-canvas .layer video{width:100%;height:100%;object-fit:cover;display:block}
-.slide-canvas .layer--video{z-index:5}
-.slide-canvas .layer-text{display:flex;flex-direction:column;justify-content:center;padding:2%;line-height:1.25;pointer-events:none}
-.slide-canvas .layer-shape{pointer-events:none}
+#stage{grid-area:stage;display:flex;align-items:center;justify-content:center;padding:20px 24px 0;overflow:hidden}
+#stage-inner{width:100%;max-width:1200px}
+.slide-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#0a0a0a;border-radius:2px}
+.slide-frame img.slide-png{width:100%;height:100%;object-fit:contain;display:block;background:#0a0a0a;position:relative;z-index:2}
+.slide-frame img.slide-png.is-hidden{opacity:0}
+.slide-frame video.slide-video{position:absolute;object-fit:cover;z-index:1;inset:0;width:100%;height:100%;display:block;background:#000}
 #controls{grid-area:controls;display:flex;align-items:center;justify-content:center;gap:16px;padding:0 24px 16px;border-top:1px solid #1e1e1e;margin-left:220px}
 .ctrl-btn{background:#141414;border:1px solid #333;color:var(--white);padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;letter-spacing:1px;transition:background .15s,border-color .15s}
 .ctrl-btn:hover:not(:disabled){background:#1e1e1e;border-color:var(--gold-dim)}
@@ -235,50 +172,71 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
     <button type="button" class="ctrl-btn ctrl-btn--gold" id="btn-next">다음 ▶</button>
   </div>
 </div>
-${templates}
 <script>
-const SLIDE_META = ${meta};
+const SLIDES = ${meta};
 let current = 0;
 const stage = document.getElementById("stage-inner");
 const thumbs = document.getElementById("thumbs");
-
-function mountSlide(i) {
-  stage.innerHTML = "";
-  const tpl = document.getElementById("slide-tpl-" + i);
-  if (!tpl) return;
-  stage.appendChild(tpl.content.cloneNode(true));
-  stage.querySelectorAll("video").forEach((v) => {
-    v.muted = true;
-    v.playsInline = true;
-    v.controls = true;
-    v.play().catch(() => {});
-  });
-}
 
 function pauseVideos() {
   stage.querySelectorAll("video").forEach((v) => { try { v.pause(); } catch(e) {} });
 }
 
-function goTo(idx) {
-  if (idx < 0 || idx >= SLIDE_META.length) return;
+function mountSlide(i) {
   pauseVideos();
-  current = idx;
-  mountSlide(current);
-  document.getElementById("slide-title").textContent = SLIDE_META[current].title;
-  document.getElementById("slide-counter").textContent = String(current + 1).padStart(2, "0") + " / " + String(SLIDE_META.length).padStart(2, "0");
-  document.getElementById("progress-bar").style.width = ((current + 1) / SLIDE_META.length * 100) + "%";
-  document.querySelectorAll(".thumb-item").forEach((el, j) => el.classList.toggle("active", j === current));
-  document.getElementById("btn-prev").disabled = current === 0;
-  document.getElementById("btn-next").disabled = current === SLIDE_META.length - 1;
+  stage.innerHTML = "";
+  const s = SLIDES[i];
+  const frame = document.createElement("div");
+  frame.className = "slide-frame";
+
+  const img = document.createElement("img");
+  img.className = "slide-png";
+  img.src = s.src;
+  img.alt = s.title;
+  frame.appendChild(img);
+
+  if (s.video) {
+    const v = document.createElement("video");
+    v.className = "slide-video";
+    v.src = s.video.src;
+    if (s.video.poster) v.poster = s.video.poster;
+    v.controls = true;
+    v.playsInline = true;
+    v.preload = "metadata";
+    v.muted = true;
+    v.addEventListener("play", () => img.classList.add("is-hidden"));
+    v.addEventListener("pause", () => img.classList.remove("is-hidden"));
+    v.addEventListener("ended", () => img.classList.remove("is-hidden"));
+    frame.insertBefore(v, img);
+    v.play().catch(() => {});
+  }
+
+  stage.appendChild(frame);
 }
 
-function next() { if (current < SLIDE_META.length - 1) goTo(current + 1); }
+function goTo(idx) {
+  if (idx < 0 || idx >= SLIDES.length) return;
+  current = idx;
+  mountSlide(current);
+  document.getElementById("slide-title").textContent = SLIDES[current].title;
+  document.getElementById("slide-counter").textContent =
+    String(current + 1).padStart(2, "0") + " / " + String(SLIDES.length).padStart(2, "0");
+  document.getElementById("progress-bar").style.width = ((current + 1) / SLIDES.length * 100) + "%";
+  document.querySelectorAll(".thumb-item").forEach((el, j) => el.classList.toggle("active", j === current));
+  document.getElementById("btn-prev").disabled = current === 0;
+  document.getElementById("btn-next").disabled = current === SLIDES.length - 1;
+}
+
+function next() { if (current < SLIDES.length - 1) goTo(current + 1); }
 function prev() { if (current > 0) goTo(current - 1); }
 
-SLIDE_META.forEach((s, i) => {
+SLIDES.forEach((s, i) => {
   const d = document.createElement("div");
   d.className = "thumb-item" + (i === 0 ? " active" : "");
-  d.innerHTML = '<span class="thumb-num">' + String(i + 1).padStart(2, "0") + '</span><span class="thumb-label">' + s.title.replace(/</g, "&lt;") + '</span>';
+  d.innerHTML =
+    '<img src="' + s.src + '" alt="" />' +
+    '<span class="thumb-num">' + String(i + 1).padStart(2, "0") + "</span>" +
+    '<span class="thumb-label">' + s.title.replace(/</g, "&lt;") + "</span>";
   d.onclick = () => goTo(i);
   thumbs.appendChild(d);
 });
@@ -296,40 +254,49 @@ goTo(0);
 }
 
 function convert(pptxPath, outDir) {
-  const zip = new AdmZip(pptxPath);
-  const extractDir = path.join(outDir, "_extract");
-  fs.rmSync(extractDir, { recursive: true, force: true });
   fs.mkdirSync(outDir, { recursive: true });
-  zip.extractAllTo(extractDir, true);
-
   const assetsDir = path.join(outDir, "assets");
-  fs.mkdirSync(assetsDir, { recursive: true });
-  const mediaSrc = path.join(extractDir, "ppt/media");
-  if (fs.existsSync(mediaSrc)) {
-    for (const f of fs.readdirSync(mediaSrc)) {
-      fs.copyFileSync(path.join(mediaSrc, f), path.join(assetsDir, f));
-    }
-  }
+
+  console.log("Exporting slides to PNG via PowerPoint...");
+  exportPngSlides(pptxPath, outDir);
+
+  console.log("Extracting media...");
+  cleanupOldLayerAssets(assetsDir);
+  extractMedia(pptxPath, assetsDir);
+
+  const zip = new AdmZip(pptxPath);
+  const extractDir = path.join(outDir, "_meta_extract");
+  fs.rmSync(extractDir, { recursive: true, force: true });
+  zip.extractAllTo(extractDir, true);
 
   const presRels = parseRels(path.join(extractDir, "ppt/_rels/presentation.xml.rels"));
   const presXml = fs.readFileSync(path.join(extractDir, "ppt/presentation.xml"), "utf8");
   const order = getSlideOrder(presXml, presRels);
-  const assetsPrefix = "assets";
 
-  const slides = order.map((slideName) => {
+  const slides = order.map((slideName, i) => {
     const slidePath = path.join(extractDir, "ppt/slides", `${slideName}.xml`);
     const relsPath = path.join(extractDir, "ppt/slides/_rels", `${slideName}.xml.rels`);
     const slideXml = fs.readFileSync(slidePath, "utf8");
     const rels = parseRels(relsPath);
-    return {
+    const video = detectVideo(slideXml, rels);
+    const entry = {
       title: slideTitle(slideXml),
-      html: buildSlideHtml(slideXml, rels, assetsPrefix),
+      src: `assets/slides/slide-${String(i + 1).padStart(2, "0")}.png`,
     };
+    if (video) {
+      entry.video = {
+        src: `assets/${video.src}`,
+        poster: video.poster ? `assets/${video.poster}` : null,
+        box: video.box,
+      };
+    }
+    return entry;
   });
+
+  fs.rmSync(extractDir, { recursive: true, force: true });
 
   const html = buildViewerHtml(slides, "스크린골프 중간보고");
   fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
-  fs.rmSync(extractDir, { recursive: true, force: true });
   console.log(`OK: ${slides.length} slides -> ${outDir}`);
 }
 
