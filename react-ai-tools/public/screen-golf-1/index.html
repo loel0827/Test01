@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스크린골프 중간보고</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#080808;--gold:#C9A84C;--gold-dim:#6B5520;--white:#fff;--gray:#888}
+html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;height:100%;overflow:hidden;user-select:none}
+#app{display:grid;grid-template-rows:56px 1fr 80px;grid-template-columns:220px 1fr;grid-template-areas:"logo topbar" "thumb stage" "thumb controls";height:100vh;max-height:100vh}
+#logo{grid-area:logo;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid #1e1e1e;border-right:1px solid #1e1e1e}
+#logo .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+#logo span{font-size:11px;letter-spacing:2px;color:var(--gold);font-weight:700;text-transform:uppercase}
+#topbar{grid-area:topbar;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #1e1e1e;position:relative}
+#slide-title{font-size:13px;color:var(--gray);letter-spacing:1px}
+#slide-counter{font-size:12px;color:var(--gold-dim);font-weight:700;letter-spacing:2px}
+#progress-bar{position:absolute;bottom:0;left:220px;height:2px;background:var(--gold);transition:width .4s cubic-bezier(.4,0,.2,1)}
+#thumbs{grid-area:thumb;overflow-y:auto;border-right:1px solid #1e1e1e;padding:12px 10px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin}
+.thumb-item{position:relative;cursor:pointer;border-radius:4px;overflow:hidden;border:1.5px solid transparent;transition:border-color .2s,transform .15s;flex-shrink:0;aspect-ratio:16/9;background:#111}
+.thumb-item:hover{transform:translateX(2px);border-color:var(--gold-dim)}
+.thumb-item.active{border-color:var(--gold)}
+.thumb-num{position:absolute;top:4px;left:6px;font-size:9px;color:var(--gold);font-weight:700;z-index:2;text-shadow:0 1px 3px #000}
+.thumb-label{position:absolute;bottom:0;left:0;right:0;padding:16px 6px 4px;font-size:8px;color:var(--gray);background:linear-gradient(transparent,rgba(0,0,0,.85));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2}
+#stage{grid-area:stage;display:flex;align-items:center;justify-content:center;padding:20px 24px 0;overflow:hidden;position:relative}
+#stage-inner{width:100%;max-width:1200px;container-type:size}
+.slide-canvas{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;container-type:size}
+.slide-canvas .layer{position:absolute;box-sizing:border-box;overflow:hidden}
+.slide-canvas .layer img,.slide-canvas .layer video{width:100%;height:100%;object-fit:cover;display:block}
+.slide-canvas .layer--video{z-index:5}
+.slide-canvas .layer-text{display:flex;flex-direction:column;justify-content:center;padding:2%;line-height:1.25;pointer-events:none}
+.slide-canvas .layer-shape{pointer-events:none}
+#controls{grid-area:controls;display:flex;align-items:center;justify-content:center;gap:16px;padding:0 24px 16px;border-top:1px solid #1e1e1e;margin-left:220px}
+.ctrl-btn{background:#141414;border:1px solid #333;color:var(--white);padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;letter-spacing:1px;transition:background .15s,border-color .15s}
+.ctrl-btn:hover:not(:disabled){background:#1e1e1e;border-color:var(--gold-dim)}
+.ctrl-btn:disabled{opacity:.35;cursor:not-allowed}
+.ctrl-btn--gold{border-color:var(--gold);color:var(--gold)}
+@media(max-width:900px){#app{grid-template-columns:1fr;grid-template-areas:"topbar" "stage" "controls"}#thumbs{display:none}#progress-bar{left:0}#controls{margin-left:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="logo"><div class="dot"></div><span>Screen Golf 1</span></div>
+  <div id="topbar"><div id="slide-title"></div><div id="slide-counter"></div><div id="progress-bar"></div></div>
+  <div id="thumbs"></div>
+  <div id="stage"><div id="stage-inner"></div></div>
+  <div id="controls">
+    <button type="button" class="ctrl-btn" id="btn-prev">◀ 이전</button>
+    <button type="button" class="ctrl-btn ctrl-btn--gold" id="btn-next">다음 ▶</button>
+  </div>
+</div>
+<template id="slide-tpl-0"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:0%;top:0%;width:100%;height:100%;"><img alt="" src="assets/image1.png" /></div>
+<div class="layer" style="left:0%;top:40.88888888888889%;width:100%;height:59.111111111111114%;"><div class="layer-shape" style="background:#000000;opacity:0.45"></div></div>
+<div class="layer" style="left:5%;top:45.33333333333333%;width:90%;height:11.555555555555555%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:66.10284825507922cqmin;font-weight:700;display:block;text-align:center">차세대 스크린골프</span></div></div>
+<div class="layer" style="left:5%;top:57.42222222222222%;width:90%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:400;display:block;text-align:center">UNREAL ENGINE 5  GAME DEVELOPMENT</span></div></div>
+<div class="layer" style="left:5%;top:67.55555555555556%;width:90%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#E8E8E8;font-size:34.99562554680665cqmin;font-weight:400;display:block;text-align:center">중간 보고</span></div></div>
+<div class="layer" style="left:5%;top:90.66666666666666%;width:90%;height:5.333333333333334%;"><div class="layer-text"><span style="color:#B8B8B8;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:center">2026</span></div></div></div></template>
+<template id="slide-tpl-1"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:6%;top:7.111111111111111%;width:50%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#C9A84C;font-size:21.386215611937395cqmin;font-weight:700;display:block;text-align:left">CONTENTS</span></div></div>
+<div class="layer" style="left:6%;top:13.866666666666665%;width:60%;height:12.444444444444445%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:62.21444541654515cqmin;font-weight:700;display:block;text-align:left">목차</span></div></div>
+<div class="layer" style="left:6%;top:30.22222222222222%;width:88%;height:12.8%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:8.5%;top:30.22222222222222%;width:7.000000000000001%;height:12.8%;"><div class="layer-text"><span style="color:#C9A84C;font-size:42.77243122387479cqmin;font-weight:700;display:block;text-align:left">01</span></div></div>
+<div class="layer" style="left:17.5%;top:31.288888888888888%;width:35%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:31.107222708272577cqmin;font-weight:700;display:block;text-align:left">제작 자동화</span></div></div>
+<div class="layer" style="left:17.5%;top:36.977777777777774%;width:74%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:left">코스 컨버팅 파이프라인 구축 현황</span></div></div>
+<div class="layer" style="left:6%;top:45.51111111111111%;width:88%;height:12.8%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:8.5%;top:45.51111111111111%;width:7.000000000000001%;height:12.8%;"><div class="layer-text"><span style="color:#C9A84C;font-size:42.77243122387479cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:17.5%;top:46.577777777777776%;width:35%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:31.107222708272577cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:17.5%;top:52.26666666666666%;width:74%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:left">디지털 트윈 — 실사 비주얼 전략</span></div></div>
+<div class="layer" style="left:6%;top:60.8%;width:88%;height:12.8%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:8.5%;top:60.8%;width:7.000000000000001%;height:12.8%;"><div class="layer-text"><span style="color:#C9A84C;font-size:42.77243122387479cqmin;font-weight:700;display:block;text-align:left">03</span></div></div>
+<div class="layer" style="left:17.5%;top:61.86666666666667%;width:35%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:31.107222708272577cqmin;font-weight:700;display:block;text-align:left">현재 진행상황</span></div></div>
+<div class="layer" style="left:17.5%;top:67.55555555555556%;width:74%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:left">자동화 · 비주얼 폴리싱 진행 중</span></div></div>
+<div class="layer" style="left:6%;top:76.08888888888889%;width:88%;height:12.8%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:8.5%;top:76.08888888888889%;width:7.000000000000001%;height:12.8%;"><div class="layer-text"><span style="color:#C9A84C;font-size:42.77243122387479cqmin;font-weight:700;display:block;text-align:left">04</span></div></div>
+<div class="layer" style="left:17.5%;top:77.15555555555555%;width:35%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:31.107222708272577cqmin;font-weight:700;display:block;text-align:left">추후 목표</span></div></div>
+<div class="layer" style="left:17.5%;top:82.84444444444445%;width:74%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:left">PCG 기반 콘텐츠 확장 계획</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">02 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-2"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:52.800000000000004%;top:34.31111111111111%;width:3.4000000000000004%;height:6.044444444444444%;"><img alt="" src="assets/image2.png" /></div>
+<div class="layer" style="left:74.8%;top:34.31111111111111%;width:3.4000000000000004%;height:6.044444444444444%;"><img alt="" src="assets/image3.png" /></div>
+<div class="layer" style="left:53.5%;top:64.35555555555555%;width:3.2%;height:5.688888888888889%;"><img alt="" src="assets/image4.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">01</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">제작 자동화</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">UNITY 코스 → UE5 컨버팅 파이프라인</span></div></div>
+<div class="layer" style="left:9%;top:34.66666666666667%;width:37%;height:6.4%;"><div class="layer-text"><span style="color:#C9A84C;font-size:27.218819869738503cqmin;font-weight:700;display:block;text-align:left">작업 개요</span></div></div>
+<div class="layer" style="left:9%;top:41.77777777777778%;width:37%;height:13.333333333333334%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:22.358316321570914cqmin;font-weight:400;display:block;text-align:left">프렌즈 스크린(Unity)으로 제작된 골프 코스를 언리얼 엔진 5 환경으로 컨버팅하는 파이프라인을 구축</span></div></div>
+<div class="layer" style="left:9%;top:57.77777777777777%;width:16%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#707070;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:left">배치 에셋</span></div></div>
+<div class="layer" style="left:25%;top:57.77777777777777%;width:22%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">자동 임포트 변경</span></div></div>
+<div class="layer" style="left:9%;top:68.8%;width:16%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#707070;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:left">소요 기간</span></div></div>
+<div class="layer" style="left:25%;top:68.8%;width:22%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">약 4일 / 1코스</span></div></div>
+<div class="layer" style="left:9%;top:57.24444444444444%;width:37%;height:0%;"><div class="layer-shape" style="background:#3A3A3A;opacity:1"></div></div>
+<div class="layer" style="left:51%;top:31.11111111111111%;width:20%;height:26.666666666666668%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:73%;top:31.11111111111111%;width:20%;height:26.666666666666668%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:52.800000000000004%;top:41.24444444444445%;width:16.5%;height:7.466666666666668%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:38.88402838534072cqmin;font-weight:700;display:block;text-align:left">90%</span></div></div>
+<div class="layer" style="left:52.800000000000004%;top:49.422222222222224%;width:16.5%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#C9A84C;font-size:18.46991348303684cqmin;font-weight:400;display:block;text-align:left">임포트 상태</span></div></div>
+<div class="layer" style="left:52.800000000000004%;top:53.333333333333336%;width:16.5%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#707070;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">배치 에셋 전체 완료</span></div></div>
+<div class="layer" style="left:74.8%;top:41.24444444444445%;width:16.5%;height:7.466666666666668%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:38.88402838534072cqmin;font-weight:700;display:block;text-align:left">4일</span></div></div>
+<div class="layer" style="left:74.8%;top:49.422222222222224%;width:16.5%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#C9A84C;font-size:18.46991348303684cqmin;font-weight:400;display:block;text-align:left">코스당 소요</span></div></div>
+<div class="layer" style="left:74.8%;top:53.333333333333336%;width:16.5%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#707070;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">로드 오브젝트 별도 일정 필요</span></div></div>
+<div class="layer" style="left:51%;top:61.33333333333333%;width:42%;height:27.555555555555557%;"><div class="layer-shape" style="background:#1C1A10;opacity:1"></div></div>
+<div class="layer" style="left:57.49999999999999%;top:64%;width:20%;height:6.044444444444444%;"><div class="layer-text"><span style="color:#C9A84C;font-size:23.330417031204433cqmin;font-weight:700;display:block;text-align:left">목표</span></div></div>
+<div class="layer" style="left:53.5%;top:71.11111111111111%;width:37%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">프렌즈 스크린 퀀텀 서비스 중인 코스 30개 전체 컨버팅</span></div></div>
+<div class="layer" style="left:53.5%;top:80%;width:37%;height:7.466666666666668%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:left">퀄리티 향상을 위한 로드 오브젝트 제작은 추가 일정 필요</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">03 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-3"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:0%;top:0%;width:100%;height:100%;"><img alt="" src="assets/image5.png" /></div>
+<div class="layer" style="left:0%;top:0%;width:100%;height:100%;"><div class="layer-shape" style="background:#000000;opacity:0.58"></div></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:48.5%;top:34.66666666666667%;width:3%;height:5.333333333333334%;"><div class="layer-shape" style="background:#C9A84C;opacity:1"></div></div>
+<div class="layer" style="left:5%;top:44.44444444444444%;width:90%;height:17.77777777777778%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:104.98687664041995cqmin;font-weight:700;display:block;text-align:center">DIGITAL TWIN</span></div></div>
+<div class="layer" style="left:41%;top:64.35555555555555%;width:18%;height:0%;"><div class="layer-shape" style="background:#C9A84C;opacity:1"></div></div>
+<div class="layer" style="left:5%;top:67.2%;width:90%;height:8%;"><div class="layer-text"><span style="color:#C9A84C;font-size:31.107222708272577cqmin;font-weight:400;display:block;text-align:center">현실과 가상의 경계가 사라지는 순간</span></div></div>
+<div class="layer" style="left:10%;top:77.33333333333333%;width:80%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:22.358316321570914cqmin;font-weight:400;display:block;text-align:center">실제 골프 코스의 지형과 환경을 그대로 디지털 세계에 옮겨, 현실과 구분되지 않는 실사 그래픽을 구현</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">04 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-4"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:0%;top:0%;width:100%;height:100%;"><img alt="" src="assets/image5.png" /></div>
+<div class="layer layer--video" style="left:-3.3655949256342956%;top:-3.2379313696898997%;width:103.73117891513562%;height:103.73117526975794%;"><video class="layer-vid" src="assets/media1.mp4" poster="assets/image6.png" controls playsinline preload="metadata"></video></div>
+<div class="layer" style="left:0%;top:0%;width:100%;height:100%;"><div class="layer-shape" style="background:#000000;opacity:0.58"></div></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:48.5%;top:34.66666666666667%;width:3%;height:5.333333333333334%;"><div class="layer-shape" style="background:#C9A84C;opacity:1"></div></div>
+<div class="layer" style="left:5%;top:44.44444444444444%;width:90%;height:17.77777777777778%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:104.98687664041995cqmin;font-weight:700;display:block;text-align:center">DIGITAL TWIN</span></div></div>
+<div class="layer" style="left:41%;top:64.35555555555555%;width:18%;height:0%;"><div class="layer-shape" style="background:#C9A84C;opacity:1"></div></div>
+<div class="layer" style="left:5%;top:67.2%;width:90%;height:8%;"><div class="layer-text"><span style="color:#C9A84C;font-size:31.107222708272577cqmin;font-weight:400;display:block;text-align:center">현실과 가상의 경계가 사라지는 순간</span></div></div>
+<div class="layer" style="left:10%;top:77.33333333333333%;width:80%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:22.358316321570914cqmin;font-weight:400;display:block;text-align:center">실제 골프 코스의 지형과 환경을 그대로 디지털 세계에 옮겨, 현실과 구분되지 않는 실사 그래픽을 구현</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">04 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-5"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:9%;top:53.333333333333336%;width:4.2%;height:7.466666666666668%;"><img alt="" src="assets/image7.png" /></div>
+<div class="layer" style="left:54%;top:53.333333333333336%;width:4.2%;height:7.466666666666668%;"><img alt="" src="assets/image8.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:6%;top:30.22222222222222%;width:88%;height:11.022222222222222%;"><div class="layer-shape" style="background:#1C1A10;opacity:1"></div></div>
+<div class="layer" style="left:6%;top:30.22222222222222%;width:88%;height:11.022222222222222%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">목표  유려하고 실사 같은 그래픽으로 실제 골프장과 구분되지 않는 디지털 환경 구현</span></div></div>
+<div class="layer" style="left:6%;top:45.33333333333333%;width:43%;height:44.44444444444444%;"><div class="layer-shape" style="background:#0D1A0D;opacity:1"></div></div>
+<div class="layer" style="left:9%;top:48.355555555555554%;width:37%;height:4.622222222222222%;"><div class="layer-text"><span style="color:#2D5A1B;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:left">INPUT — 지형 데이터</span></div></div>
+<div class="layer" style="left:14.2%;top:52.97777777777778%;width:32%;height:8.177777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:29.163021289005542cqmin;font-weight:700;display:block;text-align:left">LiDAR 지형측량</span></div></div>
+<div class="layer" style="left:9%;top:64%;width:37%;height:24%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">LiDAR 기반 실측 지형 데이터 수집</span><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">클라우드 포인트 → DEM(수치표고모델) 변환</span><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">실제 코스와 동일한 고저차·경사 반영</span></div></div>
+<div class="layer" style="left:51%;top:45.33333333333333%;width:43%;height:44.44444444444444%;"><div class="layer-shape" style="background:#1A1608;opacity:1"></div></div>
+<div class="layer" style="left:54%;top:48.355555555555554%;width:37%;height:4.622222222222222%;"><div class="layer-text"><span style="color:#8B6914;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:left">OUTPUT — 렌더링</span></div></div>
+<div class="layer" style="left:59.199999999999996%;top:52.97777777777778%;width:32%;height:8.177777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:29.163021289005542cqmin;font-weight:700;display:block;text-align:left">실시간 물리기반 렌더링</span></div></div>
+<div class="layer" style="left:54%;top:64%;width:37%;height:24%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">Lumen 기반 실시간 글로벌 일루미네이션</span><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">Nanite 가상화 지오메트리로 디테일 손실 없는 표현</span><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">포토리얼리즘 수준의 최종 비주얼 목표</span></div></div>
+<div class="layer" style="left:46.5%;top:63.11111111111111%;width:4%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#C9A84C;font-size:34.99562554680665cqmin;font-weight:400;display:block;text-align:center">→</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-6"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:0.024901574803149605%;top:0%;width:99.9501968503937%;height:100%;"><img alt="" src="assets/image9.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-7"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:0.04980314960629921%;top:0%;width:99.9501968503937%;height:100%;"><img alt="" src="assets/image10.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-8"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:-1.2126749781277342%;top:0%;width:102.42534995625547%;height:99.99998055798581%;"><img alt="" src="assets/image11.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-9"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:-1.2126749781277342%;top:0.00001944201419267036%;width:103.81991469816272%;height:101.36152425391272%;"><img alt="" src="assets/image12.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-10"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:-1.2126749781277342%;top:0.00001944201419267036%;width:103.64651137357829%;height:101.19222319432293%;"><img alt="" src="assets/image13.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-11"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:-2.60003280839895%;top:-1.3545056867891514%;width:107.17272528433945%;height:104.63493729950424%;"><img alt="" src="assets/image14.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-12"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:-3.2937007874015745%;top:-2.031748809176631%;width:103.29370078740156%;height:100.84776902887138%;"><img alt="" src="assets/image15.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-13"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:-2.8312445319335087%;top:-1.5802274715660543%;width:107.86634951881015%;height:105.31214153786333%;"><img alt="" src="assets/image16.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">02</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">디자인 방향</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">DIGITAL TWIN — 구현 방식</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">05 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-14"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:9%;top:36.62222222222222%;width:5%;height:8.88888888888889%;"><img alt="" src="assets/image17.png" /></div>
+<div class="layer" style="left:9%;top:65.95555555555556%;width:5%;height:8.88888888888889%;"><img alt="" src="assets/image18.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">03</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">현재 진행상황</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">CURRENT STATUS</span></div></div>
+<div class="layer" style="left:6%;top:32%;width:88%;height:25.244444444444447%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:16%;top:34.66666666666667%;width:30%;height:6.4%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:29.163021289005542cqmin;font-weight:700;display:block;text-align:left">제작 자동화</span></div></div>
+<div class="layer" style="left:45.5%;top:35.02222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-shape" style="background:#0A0A0A;opacity:1"></div></div>
+<div class="layer" style="left:45.5%;top:35.02222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:center">진행 중</span></div></div>
+<div class="layer" style="left:16%;top:42.31111111111111%;width:60%;height:11.555555555555555%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">Unity → UE5 코스 컨버팅 파이프라인 운영 중. 추가 코스 컨버팅을 순차 진행예정</span></div></div>
+<div class="layer" style="left:9%;top:52.97777777777778%;width:75%;height:1.4222222222222223%;"><div class="layer-shape" style="background:#2A2A2A;opacity:1"></div></div>
+<div class="layer" style="left:9%;top:52.97777777777778%;width:69.10457130358705%;height:0.8888888888888888%;"><div class="layer-shape" style="background:#C9A84C;opacity:1"></div></div>
+<div class="layer" style="left:84.5%;top:51.2%;width:5.5%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#C9A84C;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:left">85%</span></div></div>
+<div class="layer" style="left:6%;top:61.33333333333333%;width:88%;height:25.244444444444447%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:16%;top:64%;width:30%;height:6.4%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:29.163021289005542cqmin;font-weight:700;display:block;text-align:left">비주얼 폴리싱</span></div></div>
+<div class="layer" style="left:45.5%;top:64.35555555555555%;width:10%;height:5.688888888888889%;"><div class="layer-shape" style="background:#0A0A0A;opacity:1"></div></div>
+<div class="layer" style="left:45.5%;top:64.35555555555555%;width:10%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#4A8FC1;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:center">진행 중</span></div></div>
+<div class="layer" style="left:16%;top:71.64444444444445%;width:60%;height:11.555555555555555%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:20.41411490230388cqmin;font-weight:400;display:block;text-align:left">조명·재질·식생 디테일을 다듬는 비주얼 품질 향상 작업을 진행하고 있습니다.</span></div></div>
+<div class="layer" style="left:9%;top:82.31111111111112%;width:75%;height:1.4222222222222223%;"><div class="layer-shape" style="background:#2A2A2A;opacity:1"></div></div>
+<div class="layer" style="left:9%;top:82.31111111111112%;width:26.25%;height:1.4222222222222223%;"><div class="layer-shape" style="background:#4A8FC1;opacity:1"></div></div>
+<div class="layer" style="left:84.5%;top:80.53333333333333%;width:5.5%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#4A8FC1;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:left">55%</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">06 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-15"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:17.8%;top:52.44444444444445%;width:4.5%;height:8%;"><img alt="" src="assets/image19.png" /></div>
+<div class="layer" style="left:47.8%;top:52.44444444444445%;width:4.5%;height:8%;"><img alt="" src="assets/image20.png" /></div>
+<div class="layer" style="left:77.8%;top:52.44444444444445%;width:4.5%;height:8%;"><img alt="" src="assets/image21.png" /></div>
+<div class="layer" style="left:8.5%;top:56.062078351317204%;width:3.5999999999999996%;height:6.4%;"><img alt="" src="assets/image22.png" /></div>
+<div class="layer" style="left:38.5%;top:56.35555555555556%;width:3.5999999999999996%;height:6.4%;"><img alt="" src="assets/image23.png" /></div>
+<div class="layer" style="left:68.5%;top:56.455759696704575%;width:3.5999999999999996%;height:6.4%;"><img alt="" src="assets/image24.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">04</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">추후 목표</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">코스 다양화 </span></div></div>
+<div class="layer" style="left:6%;top:30.22222222222222%;width:88%;height:15.11111111111111%;"><div class="layer-shape" style="background:#1C1A10;opacity:1"></div></div>
+<div class="layer" style="left:9%;top:32.355555555555554%;width:82%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:31.107222708272577cqmin;font-weight:700;display:block;text-align:left">목표</span></div></div>
+<div class="layer" style="left:9%;top:38.044444444444444%;width:82%;height:6.4%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:22.358316321570914cqmin;font-weight:400;display:block;text-align:left">동일한 코스라도 매번 다른 플레이 경험을 제공하는 환경 시스템 구축</span></div></div>
+<div class="layer" style="left:6%;top:48.888888888888886%;width:27.500000000000004%;height:31.11111111111111%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:6%;top:62.22222222222222%;width:27.500000000000004%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">야간 모드</span></div></div>
+<div class="layer" style="left:6%;top:68.44444444444444%;width:27.500000000000004%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:center">벙커, 러프, 그린 경계 자동 배치</span></div></div>
+<div class="layer" style="left:36%;top:48.888888888888886%;width:27.500000000000004%;height:31.11111111111111%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:36%;top:62.22222222222222%;width:27.500000000000004%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">날씨 변화 </span></div></div>
+<div class="layer" style="left:36%;top:68.44444444444444%;width:27.500000000000004%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:center">나무·잔디 등 자연 요소 다양화</span></div></div>
+<div class="layer" style="left:66%;top:48.888888888888886%;width:27.500000000000004%;height:31.11111111111111%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:66%;top:62.22222222222222%;width:27.500000000000004%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">코스 확장 가속</span></div></div>
+<div class="layer" style="left:66%;top:68.44444444444444%;width:27.500000000000004%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:center">신규 코스 제작 기간 단축</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">07 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div>
+<div class="layer" style="left:8.5%;top:51.2620783513172%;width:23%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#5B6472;font-size:16.525712063769806cqmin;font-weight:700;display:block;text-align:left">TIME — 시간대</span></div></div>
+<div class="layer" style="left:8.5%;top:63.528745017983866%;width:23%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">야간 코스</span></div></div>
+<div class="layer" style="left:8.5%;top:70.10652279576163%;width:23%;height:18.666666666666668%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">조명 기반 야간 라운드 환경 구현</span><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">코스 조명·반사광 실시간 연출</span><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">낮과 전혀 다른 분위기의 플레이 경험</span></div></div>
+<div class="layer" style="left:38.5%;top:51.55555555555556%;width:23%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#5B6472;font-size:16.525712063769806cqmin;font-weight:700;display:block;text-align:left">WEATHER — 날씨</span></div></div>
+<div class="layer" style="left:38.5%;top:63.82222222222222%;width:23%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">날씨 변화 시스템</span></div></div>
+<div class="layer" style="left:38.5%;top:70.39999999999999%;width:23%;height:18.666666666666668%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">맑음·흐림·비 등 실시간 날씨 전환</span><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">날씨에 따른 잔디·지면 반응 변화</span><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">체감 난이도와 시각적 다양성 확보</span></div></div>
+<div class="layer" style="left:68.5%;top:51.655759696704585%;width:23%;height:4.266666666666667%;"><div class="layer-text"><span style="color:#5B6472;font-size:16.525712063769806cqmin;font-weight:700;display:block;text-align:left">VARIATION — 확장</span></div></div>
+<div class="layer" style="left:68.5%;top:63.922426363371244%;width:23%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">코스 변주 콘텐츠</span></div></div>
+<div class="layer" style="left:68.5%;top:70.50020414114903%;width:23%;height:18.666666666666668%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">계절감 있는 식생·색감 변화 적용</span><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">동일 코스의 다회차 재방문 가치 강화</span><span style="color:#FFFFFF;font-size:16.525712063769806cqmin;font-weight:400;display:block;text-align:left">PCG 파이프라인과 결합한 자동 적용</span></div></div></div></template>
+<template id="slide-tpl-16"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:17.8%;top:52.44444444444445%;width:4.5%;height:8%;"><img alt="" src="assets/image19.png" /></div>
+<div class="layer" style="left:47.8%;top:52.44444444444445%;width:4.5%;height:8%;"><img alt="" src="assets/image20.png" /></div>
+<div class="layer" style="left:77.8%;top:52.44444444444445%;width:4.5%;height:8%;"><img alt="" src="assets/image21.png" /></div>
+<div class="layer" style="left:6%;top:6.222222222222222%;width:20%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:left">04</span></div></div>
+<div class="layer" style="left:6%;top:12.444444444444445%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">추후 목표</span></div></div>
+<div class="layer" style="left:6%;top:21.688888888888886%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">PCG 기반 콘텐츠 확장</span></div></div>
+<div class="layer" style="left:6%;top:30.22222222222222%;width:88%;height:15.11111111111111%;"><div class="layer-shape" style="background:#1C1A10;opacity:1"></div></div>
+<div class="layer" style="left:9%;top:32.355555555555554%;width:82%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#707070;font-size:21.386215611937395cqmin;font-weight:700;display:block;text-align:left">PCG  (Procedural Content Generation)</span></div></div>
+<div class="layer" style="left:9%;top:38.044444444444444%;width:82%;height:6.4%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:22.358316321570914cqmin;font-weight:400;display:block;text-align:left">규칙 기반 알고리즘으로 지형·식생·소품 등을 자동 생성하는 기술 — 수작업 없이 다양한 코스를 빠르게 제작할 수 있습니다.</span></div></div>
+<div class="layer" style="left:6%;top:48.888888888888886%;width:27.500000000000004%;height:31.11111111111111%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:6%;top:62.22222222222222%;width:27.500000000000004%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">지형 자동 생성</span></div></div>
+<div class="layer" style="left:6%;top:68.44444444444444%;width:27.500000000000004%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:center">벙커, 러프, 그린 경계 자동 배치</span></div></div>
+<div class="layer" style="left:36%;top:48.888888888888886%;width:27.500000000000004%;height:31.11111111111111%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:36%;top:62.22222222222222%;width:27.500000000000004%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">식생 자동 배치</span></div></div>
+<div class="layer" style="left:36%;top:68.44444444444444%;width:27.500000000000004%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:center">나무·잔디 등 자연 요소 다양화</span></div></div>
+<div class="layer" style="left:66%;top:48.888888888888886%;width:27.500000000000004%;height:31.11111111111111%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:66%;top:62.22222222222222%;width:27.500000000000004%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:25.27461845047147cqmin;font-weight:700;display:block;text-align:center">코스 확장 가속</span></div></div>
+<div class="layer" style="left:66%;top:68.44444444444444%;width:27.500000000000004%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:19.44201419267036cqmin;font-weight:400;display:block;text-align:center">신규 코스 제작 기간 단축</span></div></div>
+<div class="layer" style="left:6%;top:84.44444444444444%;width:88%;height:6.044444444444444%;"><div class="layer-text"><span style="color:#E8C86A;font-size:21.386215611937395cqmin;font-weight:400;display:block;text-align:center">적용 목표  —  컨버팅 완료 코스를 기반으로 PCG 파이프라인 단계적 적용</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">07 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-17"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:6%;top:7.111111111111111%;width:80%;height:9.777777777777779%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:50.54923690094294cqmin;font-weight:700;display:block;text-align:left">종합 로드맵</span></div></div>
+<div class="layer" style="left:6%;top:16.355555555555558%;width:80%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:left">SUMMARY &amp;amp; ROADMAP</span></div></div>
+<div class="layer" style="left:6%;top:26.666666666666668%;width:27.800000000000004%;height:44.44444444444444%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:8.5%;top:30.22222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-shape" style="background:#0A0A0A;opacity:1"></div></div>
+<div class="layer" style="left:8.5%;top:30.22222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#1D9E75;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:center">완료</span></div></div>
+<div class="layer" style="left:8.5%;top:38.22222222222222%;width:10%;height:12.444444444444445%;"><div class="layer-text"><span style="color:#1D9E75;font-size:73.87965393214736cqmin;font-weight:700;display:block;text-align:left">1</span></div></div>
+<div class="layer" style="left:8.5%;top:52.44444444444445%;width:22.8%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:26.246719160104988cqmin;font-weight:700;display:block;text-align:left">코스 컨버팅 파이프라인</span></div></div>
+<div class="layer" style="left:8.5%;top:62.22222222222222%;width:22.8%;height:8%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:18.46991348303684cqmin;font-weight:400;display:block;text-align:left">Unity → UE5 임포트 체계 구축</span></div></div>
+<div class="layer" style="left:33.800000000000004%;top:45.33333333333333%;width:2%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#C9A84C;font-size:38.88402838534072cqmin;font-weight:400;display:block;text-align:center">›</span></div></div>
+<div class="layer" style="left:35.6%;top:26.666666666666668%;width:27.800000000000004%;height:44.44444444444444%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:38.1%;top:30.22222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-shape" style="background:#0A0A0A;opacity:1"></div></div>
+<div class="layer" style="left:38.1%;top:30.22222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#C9A84C;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:center">진행 중</span></div></div>
+<div class="layer" style="left:38.1%;top:38.22222222222222%;width:10%;height:12.444444444444445%;"><div class="layer-text"><span style="color:#C9A84C;font-size:73.87965393214736cqmin;font-weight:700;display:block;text-align:left">2</span></div></div>
+<div class="layer" style="left:38.1%;top:52.44444444444445%;width:22.8%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:26.246719160104988cqmin;font-weight:700;display:block;text-align:left">자동화 · 비주얼 폴리싱</span></div></div>
+<div class="layer" style="left:38.1%;top:62.22222222222222%;width:22.8%;height:8%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:18.46991348303684cqmin;font-weight:400;display:block;text-align:left">40개 코스 컨버팅 + 비쥬얼 품질 향상</span></div></div>
+<div class="layer" style="left:63.4%;top:45.33333333333333%;width:2%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#C9A84C;font-size:38.88402838534072cqmin;font-weight:400;display:block;text-align:center">›</span></div></div>
+<div class="layer" style="left:65.2%;top:26.666666666666668%;width:27.800000000000004%;height:44.44444444444444%;"><div class="layer-shape" style="background:#1B1B1B;opacity:1"></div></div>
+<div class="layer" style="left:67.7%;top:30.22222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-shape" style="background:#0A0A0A;opacity:1"></div></div>
+<div class="layer" style="left:67.7%;top:30.22222222222222%;width:10%;height:5.688888888888889%;"><div class="layer-text"><span style="color:#888780;font-size:18.46991348303684cqmin;font-weight:700;display:block;text-align:center">예정</span></div></div>
+<div class="layer" style="left:67.7%;top:38.22222222222222%;width:10%;height:12.444444444444445%;"><div class="layer-text"><span style="color:#888780;font-size:73.87965393214736cqmin;font-weight:700;display:block;text-align:left">3</span></div></div>
+<div class="layer" style="left:67.7%;top:52.44444444444445%;width:22.8%;height:8.88888888888889%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:26.246719160104988cqmin;font-weight:700;display:block;text-align:left">PCG/ 환경변화 확장</span></div></div>
+<div class="layer" style="left:67.7%;top:62.22222222222222%;width:22.8%;height:8%;"><div class="layer-text"><span style="color:#A8A8A8;font-size:18.46991348303684cqmin;font-weight:400;display:block;text-align:left">지형·식생 자동 생성 파이프라인 적용</span></div></div>
+<div class="layer" style="left:6%;top:76.8%;width:88%;height:11.555555555555555%;"><div class="layer-shape" style="background:#1C1A10;opacity:1"></div></div>
+<div class="layer" style="left:6%;top:76.8%;width:88%;height:11.555555555555555%;"><div class="layer-text"><span style="color:#E8C86A;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:center">디지털 트윈 기반 실사 비주얼 + 자동화 파이프라인으로 개발 속도와 품질을 동시에 확보합니다</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">08 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<template id="slide-tpl-18"><div class="slide-canvas" style="background:#0A0A0A"><div class="layer" style="left:46.2%;top:23.466666666666665%;width:7.6%;height:13.51111111111111%;"><img alt="" src="assets/image25.png" /></div>
+<div class="layer" style="left:43%;top:17.77777777777778%;width:14.000000000000002%;height:24.88888888888889%;"><div class="layer-shape" style="background:#C9A84C;opacity:0.15"></div></div>
+<div class="layer" style="left:5%;top:48%;width:90%;height:12.444444444444445%;"><div class="layer-text"><span style="color:#FFFFFF;font-size:58.326042578011084cqmin;font-weight:700;display:block;text-align:center">감사합니다</span></div></div>
+<div class="layer" style="left:5%;top:60.8%;width:90%;height:7.111111111111111%;"><div class="layer-text"><span style="color:#C9A84C;font-size:23.330417031204433cqmin;font-weight:400;display:block;text-align:center">REAL SCREEN GOLF  ·  UNREAL ENGINE 5</span></div></div>
+<div class="layer" style="left:90%;top:93.86666666666666%;width:9%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#707070;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:right">09 / 09</span></div></div>
+<div class="layer" style="left:5%;top:93.86666666666666%;width:40%;height:4.977777777777778%;"><div class="layer-text"><span style="color:#3A3A3A;font-size:17.497812773403325cqmin;font-weight:400;display:block;text-align:left">REAL SCREEN GOLF — UE5</span></div></div></div></template>
+<script>
+const SLIDE_META = [{"title":"차세대 스크린골프"},{"title":"CONTENTS"},{"title":"제작 자동화"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"디자인 방향"},{"title":"현재 진행상황"},{"title":"추후 목표"},{"title":"추후 목표"},{"title":"종합 로드맵"},{"title":"감사합니다"}];
+let current = 0;
+const stage = document.getElementById("stage-inner");
+const thumbs = document.getElementById("thumbs");
+
+function mountSlide(i) {
+  stage.innerHTML = "";
+  const tpl = document.getElementById("slide-tpl-" + i);
+  if (!tpl) return;
+  stage.appendChild(tpl.content.cloneNode(true));
+  stage.querySelectorAll("video").forEach((v) => {
+    v.muted = true;
+    v.playsInline = true;
+    v.controls = true;
+    v.play().catch(() => {});
+  });
+}
+
+function pauseVideos() {
+  stage.querySelectorAll("video").forEach((v) => { try { v.pause(); } catch(e) {} });
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= SLIDE_META.length) return;
+  pauseVideos();
+  current = idx;
+  mountSlide(current);
+  document.getElementById("slide-title").textContent = SLIDE_META[current].title;
+  document.getElementById("slide-counter").textContent = String(current + 1).padStart(2, "0") + " / " + String(SLIDE_META.length).padStart(2, "0");
+  document.getElementById("progress-bar").style.width = ((current + 1) / SLIDE_META.length * 100) + "%";
+  document.querySelectorAll(".thumb-item").forEach((el, j) => el.classList.toggle("active", j === current));
+  document.getElementById("btn-prev").disabled = current === 0;
+  document.getElementById("btn-next").disabled = current === SLIDE_META.length - 1;
+}
+
+function next() { if (current < SLIDE_META.length - 1) goTo(current + 1); }
+function prev() { if (current > 0) goTo(current - 1); }
+
+SLIDE_META.forEach((s, i) => {
+  const d = document.createElement("div");
+  d.className = "thumb-item" + (i === 0 ? " active" : "");
+  d.innerHTML = '<span class="thumb-num">' + String(i + 1).padStart(2, "0") + '</span><span class="thumb-label">' + s.title.replace(/</g, "&lt;") + '</span>';
+  d.onclick = () => goTo(i);
+  thumbs.appendChild(d);
+});
+
+document.getElementById("btn-prev").onclick = prev;
+document.getElementById("btn-next").onclick = next;
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); next(); }
+  if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); prev(); }
+});
+goTo(0);
+</script>
+</body>
+</html>

@@ -1,7 +1,12 @@
 {
   "name": "test-root",
   "private": true,
+  "type": "module",
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1"
+    "@supabase/supabase-js": "^2.49.1",
+    "adm-zip": "^0.5.16"
+  },
+  "scripts": {
+    "pptx:screen-golf-1": "node scripts/pptx-to-html.mjs"
   }
 }

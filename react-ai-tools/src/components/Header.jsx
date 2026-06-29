@@ -22,6 +22,9 @@ export function Header({
         <Link to="/screen-golf" className="link-btn site-header__nav-link">
           스크린골프
         </Link>
+        <Link to="/screen-golf-1" className="link-btn site-header__nav-link">
+          스크린골프1
+        </Link>
         <button
           type="button"
           className="link-btn"

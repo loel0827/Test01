@@ -15,6 +15,10 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
+# PPTX 변환 임시 파일
+scripts/_pptx_extract/
+scripts/_pptx_extract.zip
+
 # 로컬 전용 (필요 시)
 # .env
 # .env.local

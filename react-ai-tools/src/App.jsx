@@ -5,6 +5,7 @@ import { HomePage } from "./pages/HomePage.jsx";
 import { ServiceBoardPage } from "./pages/ServiceBoardPage.jsx";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage.jsx";
 import { ScreenGolfPresentationPage } from "./pages/ScreenGolfPresentationPage.jsx";
+import { ScreenGolf1Page } from "./pages/ScreenGolf1Page.jsx";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/service/:toolId" element={<ServiceBoardPage />} />
             <Route path="/screen-golf" element={<ScreenGolfPresentationPage />} />
+            <Route path="/screen-golf-1" element={<ScreenGolf1Page />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
             <Route path="/admin/users" element={<Navigate to="/admin/settings" replace />} />
           </Routes>
