@@ -7,6 +7,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 import AdmZip from "adm-zip";
+import {
+  mergeCustomSlides,
+  getCustomSlideStyles,
+  getCustomSlideScript,
+} from "./custom-slides.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SW = 9144000;
@@ -176,6 +181,7 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
 .fs-nav--next{right:16px}
 .fs-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;color:#555;letter-spacing:1px}
 @media(max-width:900px){#app{grid-template-columns:1fr;grid-template-areas:"topbar" "stage" "controls"}#thumbs{display:none}#progress-bar{left:0}#controls{margin-left:0}.fs-body{padding:8px 48px}.fs-nav{width:36px;height:36px;font-size:14px}}
+${getCustomSlideStyles()}
 </style>
 </head>
 <body>
@@ -212,6 +218,7 @@ html,body{background:var(--bg);color:var(--white);font-family:Arial,sans-serif;h
   </div>
 </div>
 <script>
+${getCustomSlideScript()}
 const SLIDES = ${meta};
 let current = 0;
 let fullscreenOpen = false;
@@ -226,6 +233,10 @@ function pauseAllVideos() {
 
 function buildSlideFrame(i, autoplayVideo) {
   const s = SLIDES[i];
+  if (s.type === "html") {
+    const htmlSlide = buildHtmlSlide(s.id);
+    if (htmlSlide) return htmlSlide;
+  }
   const frame = document.createElement("div");
   frame.className = "slide-frame";
   const img = document.createElement("img");
@@ -315,9 +326,12 @@ function closeFullscreen() {
 
 SLIDES.forEach((s, i) => {
   const d = document.createElement("div");
-  d.className = "thumb-item" + (i === 0 ? " active" : "");
+  d.className = "thumb-item" + (i === 0 ? " active" : "") + (s.type === "html" ? " thumb-item--html" : "");
+  const thumbBody = s.type === "html"
+    ? buildThumbHtml(s)
+    : '<img src="' + s.src + '" alt="" />';
   d.innerHTML =
-    '<img src="' + s.src + '" alt="" />' +
+    thumbBody +
     '<span class="thumb-num">' + String(i + 1).padStart(2, "0") + "</span>" +
     '<span class="thumb-label">' + s.title.replace(/</g, "&lt;") + "</span>";
   d.onclick = () => goTo(i);
@@ -405,9 +419,10 @@ function convert(pptxPath, outDir) {
 
   fs.rmSync(extractDir, { recursive: true, force: true });
 
-  const html = buildViewerHtml(slides, "스크린골프 중간보고");
+  const mergedSlides = mergeCustomSlides(slides);
+  const html = buildViewerHtml(mergedSlides, "스크린골프 중간보고");
   fs.writeFileSync(path.join(outDir, "index.html"), html, "utf8");
-  console.log(`OK: ${slides.length} slides -> ${outDir}`);
+  console.log(`OK: ${mergedSlides.length} slides (${slides.length} PPT + custom) -> ${outDir}`);
 }
 
 const pptxArg = process.argv[2];
